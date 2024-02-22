@@ -14,17 +14,40 @@ int orderTicket;
 // Define variable for storing MA values
 double fastMA, slowMA;
 
-int OnInit(){
-   // Assign indicators to variables
+int OnInit(){   
+   if(!checkIfParametersValuesAreCorrect()){
+      return INIT_PARAMETERS_INCORRECT;
+   }   
    fastMA = iMA(_Symbol, PERIOD_CURRENT, fastMA_period, 0, MODE_EMA, PRICE_CLOSE);
    slowMA = iMA(_Symbol, PERIOD_CURRENT, slowMA_period, 0, MODE_SMA, PRICE_CLOSE);
    return(INIT_SUCCEEDED);
 }
 
-void OnDeinit(const int reason){
-}
+void OnDeinit(const int reason){}
 
 void OnTick(){
    Print(fastMA);
    Print(slowMA);
+}
+
+bool checkIfParametersValuesAreCorrect(){
+   bool parametersAreCorrect = true;
+   
+   if(fastMA_period <= 0){
+      Alert("Fast moving average period <= 0");
+      parametersAreCorrect = false;
+   }
+   if(slowMA_period <= 0){
+      Alert("Slow moving average period <= 0");
+      parametersAreCorrect = false;
+   }
+   if(fastMA_period >= slowMA_period){
+      Alert("Fast period >= slow period");
+      parametersAreCorrect = false;
+   }
+   if(lotSize < 0.01){
+      Alert("lot size not correct");
+      parametersAreCorrect = false;
+   }
+   return parametersAreCorrect;
 }
