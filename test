@@ -17,22 +17,21 @@ double fastHandlerMA, slowHandlerMA;
 int OnInit(){   
    if(!checkIfParametersValuesAreCorrect()){
       return INIT_PARAMETERS_INCORRECT;
-   }   
+   }      
    fastHandlerMA = iMA(_Symbol, PERIOD_CURRENT, fastMA_period, 0, MODE_EMA, PRICE_CLOSE);
-   slowHandlerMA = iMA(_Symbol, PERIOD_CURRENT, slowMA_period, 0, MODE_SMA, PRICE_CLOSE);
+   slowHandlerMA = iMA(_Symbol, PERIOD_CURRENT, slowMA_period, 0, MODE_SMA, PRICE_CLOSE);   
+   if(!checkIfHanlersCreationHasSucceed()){
+      return INIT_FAILED;
+   }   
    return(INIT_SUCCEEDED);
 }
 
 void OnDeinit(const int reason){}
 
-void OnTick(){
-   Print(fastHandlerMA);
-   Print(slowHandlerMA);
-}
+void OnTick(){}
 
 bool checkIfParametersValuesAreCorrect(){
-   bool parametersAreCorrect = true;
-   
+   bool parametersAreCorrect = true;   
    if(fastMA_period <= 0){
       Alert("Fast moving average period <= 0");
       parametersAreCorrect = false;
@@ -50,4 +49,17 @@ bool checkIfParametersValuesAreCorrect(){
       parametersAreCorrect = false;
    }
    return parametersAreCorrect;
+}
+
+bool checkIfHanlersCreationHasSucceed(){
+   bool creationSucceed = true;    
+   if(fastHandlerMA == INVALID_HANDLE){
+      Alert("Failed to create fast handler");
+      creationSucceed = false;
+   }   
+   if(slowHandlerMA == INVALID_HANDLE){
+      Alert("Failed to create slow handler");
+      creationSucceed = false;
+   }  
+   return creationSucceed;
 }
