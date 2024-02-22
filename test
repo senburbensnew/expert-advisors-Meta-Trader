@@ -1,0 +1,30 @@
+#property copyright "Copyright 2024, MetaQuotes Ltd."
+#property link      "https://www.mql5.com"
+#property version   "1.00"
+
+#include <Trade\Trade.mqh>
+
+input int fastMA_period = 8;
+input int slowMA_period = 200;
+input double lotSize = 0.01;
+
+// Define variable for storing the order ticket
+int orderTicket;
+
+// Define variable for storing MA values
+double fastMA, slowMA;
+
+int OnInit(){
+   // Assign indicators to variables
+   fastMA = iMA(_Symbol, PERIOD_CURRENT, fastMA_period, 0, MODE_EMA, PRICE_CLOSE);
+   slowMA = iMA(_Symbol, PERIOD_CURRENT, slowMA_period, 0, MODE_SMA, PRICE_CLOSE);
+   return(INIT_SUCCEEDED);
+}
+
+void OnDeinit(const int reason){
+}
+
+void OnTick(){
+   Print(fastMA);
+   Print(slowMA);
+}
