@@ -12,22 +12,22 @@ input double lotSize = 0.01;
 int orderTicket;
 
 // Define variable for storing MA values
-double fastMA, slowMA;
+double fastHandlerMA, slowHandlerMA;
 
 int OnInit(){   
    if(!checkIfParametersValuesAreCorrect()){
       return INIT_PARAMETERS_INCORRECT;
    }   
-   fastMA = iMA(_Symbol, PERIOD_CURRENT, fastMA_period, 0, MODE_EMA, PRICE_CLOSE);
-   slowMA = iMA(_Symbol, PERIOD_CURRENT, slowMA_period, 0, MODE_SMA, PRICE_CLOSE);
+   fastHandlerMA = iMA(_Symbol, PERIOD_CURRENT, fastMA_period, 0, MODE_EMA, PRICE_CLOSE);
+   slowHandlerMA = iMA(_Symbol, PERIOD_CURRENT, slowMA_period, 0, MODE_SMA, PRICE_CLOSE);
    return(INIT_SUCCEEDED);
 }
 
 void OnDeinit(const int reason){}
 
 void OnTick(){
-   Print(fastMA);
-   Print(slowMA);
+   Print(fastHandlerMA);
+   Print(slowHandlerMA);
 }
 
 bool checkIfParametersValuesAreCorrect(){
