@@ -14,6 +14,9 @@ input double TrailStop = 100;
 // Define variable for storing MA values
 int fastHandlerMA;
 int slowHandlerMA;
+int rsiHandler;
+int enveloppesHandler1;
+int enveloppesHandler2;
 
 double fastBuffer[];
 double slowBuffer[];
@@ -27,12 +30,28 @@ int OnInit(){
    if(!checkIfParametersValuesAreCorrect()){
       return INIT_PARAMETERS_INCORRECT;
    }      
+   
+   // Add moving average indicators in subwindow
    fastHandlerMA = iMA(_Symbol, PERIOD_CURRENT, fastMA_period, 0, MODE_EMA, PRICE_CLOSE);
-   slowHandlerMA = iMA(_Symbol, PERIOD_CURRENT, slowMA_period, 0, MODE_SMA, PRICE_CLOSE);   
+   slowHandlerMA = iMA(_Symbol, PERIOD_CURRENT, slowMA_period, 0, MODE_SMA, PRICE_CLOSE);  
    if(!checkIfHanlersCreationHasSucceed()){
       return INIT_FAILED;
    }   
-   ArraySetAsSeries(fastBuffer,true);
+   ChartIndicatorAdd(ChartID(),0,fastHandlerMA);
+   ChartIndicatorAdd(ChartID(),0,slowHandlerMA);
+   
+   // Add RSI indicator in subwindow 1
+   // rsiHandler = iRSI(_Symbol, _Period, 1, PRICE_CLOSE);
+   // ChartIndicatorAdd(ChartID(),1,rsiHandler);
+   
+   // Add enveloppes 1 indicator in subwindow 1  
+   enveloppesHandler1 = iEnvelopes(_Symbol,1, 14, 0, MODE_SMMA,PRICE_CLOSE,6.000);
+   ChartIndicatorAdd(ChartID(), 1, enveloppesHandler1);
+   
+   // Add enveloppes 2 indicator in subwindow 1  
+   enveloppesHandler2 = iEnvelopes(_Symbol,1, 14, 0, MODE_SMMA,PRICE_CLOSE,0.0008);
+   ChartIndicatorAdd(ChartID(), 1, enveloppesHandler2);
+   
    ArraySetAsSeries(slowBuffer,true);
    return(INIT_SUCCEEDED);
 }
