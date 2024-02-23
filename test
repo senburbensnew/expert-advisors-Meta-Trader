@@ -49,7 +49,7 @@ int OnInit(){
    ChartIndicatorAdd(ChartID(), 1, enveloppesHandler1);
    
    // Add enveloppes 2 indicator in subwindow 1  
-   enveloppesHandler2 = iEnvelopes(_Symbol,1, 14, 0, MODE_SMMA,PRICE_CLOSE,0.0008);
+   enveloppesHandler2 = iEnvelopes(_Symbol,1, 14, 0, MODE_SMMA,PRICE_CLOSE,0.008);
    ChartIndicatorAdd(ChartID(), 1, enveloppesHandler2);
    
    ArraySetAsSeries(slowBuffer,true);
