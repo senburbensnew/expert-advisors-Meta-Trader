@@ -67,9 +67,9 @@ void OnTick(){
       double sl = ask - InputStopLoss * SymbolInfoDouble(_Symbol, SYMBOL_POINT);
       double tp = ask + InputTakeProfit * SymbolInfoDouble(_Symbol, SYMBOL_POINT);
       trade.PositionOpen(_Symbol, ORDER_TYPE_BUY, lotSize, ask, sl, tp,"Cross EA");
-      string message;
-      StringConcatenate(&message, "Buy position taken ", _Symbol)
-      SendNotification("Rubens Buy");
+      string message = "Buy position taken for" + _Symbol;
+      // StringConcatenate(&message, "Buy position taken ", _Symbol)
+      SendNotification(message);
    }
    
    // check for cross sell
@@ -79,9 +79,9 @@ void OnTick(){
       double sl = bid + InputStopLoss * SymbolInfoDouble(_Symbol, SYMBOL_POINT);
       double tp = bid - InputTakeProfit * SymbolInfoDouble(_Symbol, SYMBOL_POINT);
       trade.PositionOpen(_Symbol, ORDER_TYPE_SELL, lotSize, bid, sl, tp,"Cross EA");
-      string message;
-      StringConcatenate(&message, "Sell position taken ", _Symbol)
-      SendNotification("Rubens Sell");
+      string message = "Sell position taken for " + _Symbol;
+      // StringConcatenate(&message, "Sell position taken ", _Symbol)
+      SendNotification(message);
    }  
 }
 
