@@ -41,8 +41,8 @@ int OnInit(){
    ChartIndicatorAdd(ChartID(),0,slowHandlerMA);
    
    // Add RSI indicator in subwindow 1
-   // rsiHandler = iRSI(_Symbol, _Period, 1, PRICE_CLOSE);
-   // ChartIndicatorAdd(ChartID(),1,rsiHandler);
+   rsiHandler = iRSI(_Symbol, _Period, 1, PRICE_CLOSE);
+   ChartIndicatorAdd(ChartID(),1,rsiHandler);
    
    // Add enveloppes 1 indicator in subwindow 1  
    enveloppesHandler1 = iEnvelopes(_Symbol,1, 14, 0, MODE_SMMA,PRICE_CLOSE,6.000);
