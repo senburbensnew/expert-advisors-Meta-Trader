@@ -19,6 +19,7 @@ int twoHundredSMAHandler;
 int rsiHandler;
 int enveloppesHandler1;
 int enveloppesHandler2;
+int volumesHandler;
 
 double fastBuffer[];
 double slowBuffer[];
@@ -47,6 +48,8 @@ int OnInit(){
    enveloppesHandler1 = iEnvelopes(_Symbol, PERIOD_CURRENT, 1, 0, MODE_SMMA, PRICE_CLOSE, 6.000);   
    // Add enveloppes 2 indicator in subwindow 1  
    enveloppesHandler2 = iEnvelopes(_Symbol, PERIOD_CURRENT, 1, 0, MODE_SMMA, PRICE_CLOSE, 0.0008);
+   // Volumes indicator
+   volumesHandler = iVolume(_Symbol, PERIOD_CURRENT, VOLUME_TICK);
 
    
    if(!checkIfHanlersCreationHasSucceed()){
@@ -56,9 +59,10 @@ int OnInit(){
    ChartIndicatorAdd(ChartID(), 0, fastHandlerMA); 
    ChartIndicatorAdd(ChartID(), 0, slowHandlerMA); 
    ChartIndicatorAdd(ChartID(), 0, twoHundredSMAHandler);
-   ChartIndicatorAdd(ChartID(), 1, rsiHandler); 
+   ChartIndicatorAdd(ChartID(), 1, rsiHandler);  
    ChartIndicatorAdd(ChartID(), 1, enveloppesHandler1);  
    ChartIndicatorAdd(ChartID(), 1, enveloppesHandler2); 
+   ChartIndicatorAdd(ChartID(), 1, volumesHandler); 
          
    ArraySetAsSeries(fastBuffer,true);
    ArraySetAsSeries(slowBuffer,true);
@@ -165,6 +169,9 @@ bool checkIfHanlersCreationHasSucceed(){
    }  
    if(enveloppesHandler2 == INVALID_HANDLE){
       Alert("Failed to create enveloppesHandler2 handler");
+      creationSucceed = false;
+   }if(volumesHandler == INVALID_HANDLE){
+      Alert("Failed to create volumesHandler handler");
       creationSucceed = false;
    }
    return creationSucceed;
