@@ -5,7 +5,8 @@
 #include <Trade\Trade.mqh>
 
 input int fastMA_period = 8;
-input int slowMA_period = 200;
+input int slowMA_period = 55;
+input int twoHundredSMA_period = 200;
 input double lotSize = 0.01;
 input int InputStopLoss = 100;
 input int InputTakeProfit = 200;
@@ -14,6 +15,7 @@ input double TrailStop = 100;
 // Define variable for storing MA values
 int fastHandlerMA;
 int slowHandlerMA;
+int twoHundredSMAHandler;
 int rsiHandler;
 int enveloppesHandler1;
 int enveloppesHandler2;
@@ -22,37 +24,45 @@ double fastBuffer[];
 double slowBuffer[];
 datetime openTimeBuy = 0;
 datetime openTimeSell = 0;
+
+double AccountBalance = 0.0;
+
 CTrade trade;
 
 int OnInit(){   
-   Print("ACCOUNT_BALANCE = $",AccountInfoDouble(ACCOUNT_BALANCE));
+   AccountBalance = AccountInfoDouble(ACCOUNT_BALANCE);
+   
+   Print("ACCOUNT_BALANCE = $", AccountBalance);
    
    if(!checkIfParametersValuesAreCorrect()){
       return INIT_PARAMETERS_INCORRECT;
    }      
    
-   // Add moving average indicators in subwindow
    fastHandlerMA = iMA(_Symbol, PERIOD_CURRENT, fastMA_period, 0, MODE_EMA, PRICE_CLOSE);
-   slowHandlerMA = iMA(_Symbol, PERIOD_CURRENT, slowMA_period, 0, MODE_SMA, PRICE_CLOSE);  
+   slowHandlerMA = iMA(_Symbol, PERIOD_CURRENT, slowMA_period, 0, MODE_EMA, PRICE_CLOSE);  
+   twoHundredSMAHandler = iMA(_Symbol, PERIOD_CURRENT, twoHundredSMA_period, 0, MODE_SMA, PRICE_CLOSE);
+   // Add RSI indicator in subwindow 1
+   rsiHandler = iRSI(_Symbol, PERIOD_CURRENT, 1, PRICE_CLOSE);
+   // Add enveloppes 1 indicator in subwindow 1  
+   enveloppesHandler1 = iEnvelopes(_Symbol, PERIOD_CURRENT, 1, 0, MODE_SMMA, PRICE_CLOSE, 6.000);   
+   // Add enveloppes 2 indicator in subwindow 1  
+   enveloppesHandler2 = iEnvelopes(_Symbol, PERIOD_CURRENT, 1, 0, MODE_SMMA, PRICE_CLOSE, 0.0008);
+
+   
    if(!checkIfHanlersCreationHasSucceed()){
       return INIT_FAILED;
    }   
-   ChartIndicatorAdd(ChartID(),0,fastHandlerMA);
-   ChartIndicatorAdd(ChartID(),0,slowHandlerMA);
    
-   // Add RSI indicator in subwindow 1
-   rsiHandler = iRSI(_Symbol, _Period, 1, PRICE_CLOSE);
-   ChartIndicatorAdd(ChartID(),1,rsiHandler);
-   
-   // Add enveloppes 1 indicator in subwindow 1  
-   enveloppesHandler1 = iEnvelopes(_Symbol,1, 14, 0, MODE_SMMA,PRICE_CLOSE,6.000);
-   ChartIndicatorAdd(ChartID(), 1, enveloppesHandler1);
-   
-   // Add enveloppes 2 indicator in subwindow 1  
-   enveloppesHandler2 = iEnvelopes(_Symbol,1, 14, 0, MODE_SMMA,PRICE_CLOSE,0.008);
-   ChartIndicatorAdd(ChartID(), 1, enveloppesHandler2);
-   
+   ChartIndicatorAdd(ChartID(), 0, fastHandlerMA); 
+   ChartIndicatorAdd(ChartID(), 0, slowHandlerMA); 
+   ChartIndicatorAdd(ChartID(), 0, twoHundredSMAHandler);
+   ChartIndicatorAdd(ChartID(), 1, rsiHandler); 
+   ChartIndicatorAdd(ChartID(), 1, enveloppesHandler1);  
+   ChartIndicatorAdd(ChartID(), 1, enveloppesHandler2); 
+         
+   ArraySetAsSeries(fastBuffer,true);
    ArraySetAsSeries(slowBuffer,true);
+   
    return(INIT_SUCCEEDED);
 }
 
@@ -86,8 +96,7 @@ void OnTick(){
       double sl = ask - InputStopLoss * SymbolInfoDouble(_Symbol, SYMBOL_POINT);
       double tp = ask + InputTakeProfit * SymbolInfoDouble(_Symbol, SYMBOL_POINT);
       trade.PositionOpen(_Symbol, ORDER_TYPE_BUY, lotSize, ask, sl, tp,"Cross EA");
-      string message = "Buy position taken for" + _Symbol;
-      // StringConcatenate(&message, "Buy position taken ", _Symbol)
+      string message = "Buy position taken for " + _Symbol;
       SendNotification(message);
    }
    
@@ -99,7 +108,6 @@ void OnTick(){
       double tp = bid - InputTakeProfit * SymbolInfoDouble(_Symbol, SYMBOL_POINT);
       trade.PositionOpen(_Symbol, ORDER_TYPE_SELL, lotSize, bid, sl, tp,"Cross EA");
       string message = "Sell position taken for " + _Symbol;
-      // StringConcatenate(&message, "Sell position taken ", _Symbol)
       SendNotification(message);
    }  
 }
@@ -142,6 +150,22 @@ bool checkIfHanlersCreationHasSucceed(){
    if(slowHandlerMA == INVALID_HANDLE){
       Alert("Failed to create slow handler");
       creationSucceed = false;
+   }
+   if(twoHundredSMAHandler == INVALID_HANDLE){
+      Alert("Failed to create twoHundredSMAHandler handler");
+      creationSucceed = false;
+   }
+   if(rsiHandler == INVALID_HANDLE){
+      Alert("Failed to create rsiHandler handler");
+      creationSucceed = false;
    }  
+   if(enveloppesHandler1 == INVALID_HANDLE){
+      Alert("Failed to create enveloppesHandler1 handler");
+      creationSucceed = false;
+   }  
+   if(enveloppesHandler2 == INVALID_HANDLE){
+      Alert("Failed to create enveloppesHandler2 handler");
+      creationSucceed = false;
+   }
    return creationSucceed;
 }
