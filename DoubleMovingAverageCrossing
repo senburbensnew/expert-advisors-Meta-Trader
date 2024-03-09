@@ -7,12 +7,12 @@
 input int fastMaPeriod = 8;
 input int slowMaPeriod = 200;
 input double riskPercent = 1.0; // risk % of acccount balance
-input int tpRatio = 3;
+input int tpRatio = 5;
 int fastMaHandler;
 int slowMaHandler;
-//int rsiHandler;
-//int enveloppesHandler1;
-//int enveloppesHandler2;
+int rsiHandler;
+int enveloppesHandler1;
+int enveloppesHandler2;
 CTrade trade;
 bool fastMaAboveSlowMa = false;
 
@@ -20,18 +20,18 @@ int OnInit(){
    fastMaHandler = iMA(_Symbol, PERIOD_CURRENT, fastMaPeriod, 0, MODE_EMA, PRICE_CLOSE);
    slowMaHandler = iMA(_Symbol, PERIOD_CURRENT, slowMaPeriod, 0, MODE_SMA, PRICE_CLOSE); 
    // Add RSI indicator in subwindow 1
-   // rsiHandler = iRSI(_Symbol, PERIOD_CURRENT, 1, PRICE_CLOSE);
+   rsiHandler = iRSI(_Symbol, PERIOD_CURRENT, 1, PRICE_CLOSE);
    // Add enveloppes 1 indicator in subwindow 1  
-   // enveloppesHandler1 = iEnvelopes(_Symbol, PERIOD_CURRENT, 1, 0, MODE_SMMA, PRICE_CLOSE, 6.000);   
+   enveloppesHandler1 = iEnvelopes(_Symbol, PERIOD_CURRENT, 1, 0, MODE_SMMA, PRICE_CLOSE, 6.000);   
    // Add enveloppes 2 indicator in subwindow 1  
-   // enveloppesHandler2 = iEnvelopes(_Symbol, PERIOD_CURRENT, 1, 0, MODE_SMMA, PRICE_CLOSE, 0.0008); 
+   enveloppesHandler2 = iEnvelopes(_Symbol, PERIOD_CURRENT, 1, 0, MODE_SMMA, PRICE_CLOSE, 0.0008); 
    
    ChartIndicatorAdd(ChartID(), 0, fastMaHandler); 
    ChartIndicatorAdd(ChartID(), 0, slowMaHandler); 
      
-   // ChartIndicatorAdd(ChartID(), 1, rsiHandler);  
-   // ChartIndicatorAdd(ChartID(), 1, enveloppesHandler1);  
-   // ChartIndicatorAdd(ChartID(), 1, enveloppesHandler2);  
+   ChartIndicatorAdd(ChartID(), 1, rsiHandler);  
+   ChartIndicatorAdd(ChartID(), 1, enveloppesHandler1);  
+   ChartIndicatorAdd(ChartID(), 1, enveloppesHandler2);  
    
    fastMaAboveSlowMa = checkIfFastMaIsAboveOrBelowSlowMa();
    
@@ -89,6 +89,8 @@ void OnTick(){
          SendNotification(message);
          fastMaAboveSlowMa = isAbove;
       }
+   }else{
+      checkForUpdateSLAndTP();
    }
       
    Comment("fastMa[0] : ", DoubleToString(fastMa[0], _Digits),
@@ -96,6 +98,10 @@ void OnTick(){
            "\nslowMa[0] : ", DoubleToString(slowMa[0], _Digits),
            " | slowMa[1] : ", DoubleToString(slowMa[1], _Digits),
            "\nPositionsTotal : ", PositionsTotal()); 
+}
+
+void checkForUpdateSLAndTP(){
+
 }
 
 double getAskPrice(){
