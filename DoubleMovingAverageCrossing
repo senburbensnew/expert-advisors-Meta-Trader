@@ -19,18 +19,18 @@ int OnInit(){
    fastMaHandler = iMA(_Symbol, PERIOD_CURRENT, fastMaPeriod, 0, MODE_EMA, PRICE_CLOSE);
    slowMaHandler = iMA(_Symbol, PERIOD_CURRENT, slowMaPeriod, 0, MODE_SMA, PRICE_CLOSE); 
    // Add RSI indicator in subwindow 1
-   rsiHandler = iRSI(_Symbol, PERIOD_CURRENT, 1, PRICE_CLOSE);
+   // rsiHandler = iRSI(_Symbol, PERIOD_CURRENT, 1, PRICE_CLOSE);
    // Add enveloppes 1 indicator in subwindow 1  
-   enveloppesHandler1 = iEnvelopes(_Symbol, PERIOD_CURRENT, 1, 0, MODE_SMMA, PRICE_CLOSE, 6.000);   
+   // enveloppesHandler1 = iEnvelopes(_Symbol, PERIOD_CURRENT, 1, 0, MODE_SMMA, PRICE_CLOSE, 6.000);   
    // Add enveloppes 2 indicator in subwindow 1  
-   enveloppesHandler2 = iEnvelopes(_Symbol, PERIOD_CURRENT, 1, 0, MODE_SMMA, PRICE_CLOSE, 0.0008); 
+   // enveloppesHandler2 = iEnvelopes(_Symbol, PERIOD_CURRENT, 1, 0, MODE_SMMA, PRICE_CLOSE, 0.0008); 
    
    ChartIndicatorAdd(ChartID(), 0, fastMaHandler); 
    ChartIndicatorAdd(ChartID(), 0, slowMaHandler); 
      
-   ChartIndicatorAdd(ChartID(), 1, rsiHandler);  
-   ChartIndicatorAdd(ChartID(), 1, enveloppesHandler1);  
-   ChartIndicatorAdd(ChartID(), 1, enveloppesHandler2);  
+   // ChartIndicatorAdd(ChartID(), 1, rsiHandler);  
+   // ChartIndicatorAdd(ChartID(), 1, enveloppesHandler1);  
+   // ChartIndicatorAdd(ChartID(), 1, enveloppesHandler2);  
    
    fastMaAboveSlowMa = checkIfFastMaIsAboveOrBelowSlowMa();
    
@@ -66,7 +66,7 @@ void OnTick(){
       ask = NormalizeDouble(ask, _Digits); 
       double sl = slowMa[1];
       sl = NormalizeDouble(sl, _Digits); 
-      double tp = (ask + (ask - sl)) * 3;
+      double tp = ask + (ask - sl) * 3;
       tp = NormalizeDouble(tp, _Digits);
       Print("Entry => ", ask, "TP => ", tp, ", SL => ", sl);
       trade.Buy(calculateLotSize(riskPercent, ask-sl), _Symbol, ask, sl, tp);
@@ -82,7 +82,7 @@ void OnTick(){
       bid = NormalizeDouble(bid, _Digits); 
       double sl = slowMa[1];
       sl = NormalizeDouble(sl, _Digits); 
-      double tp = (bid - (sl - bid)) * 3;
+      double tp = bid - (sl - bid) * 3;
       tp = NormalizeDouble(tp, _Digits);
       Print("Entry => ", bid, "TP => ", tp, ", SL => ", sl);
       trade.Sell(calculateLotSize(riskPercent, sl-bid), _Symbol, bid, sl, tp);
@@ -117,14 +117,7 @@ double calculateLotSize(double riskPercent, double slDistance){
       return 0;
    }
    double lots = MathFloor(riskMoney / moneyLotStep) * lotStep;
-   Print("---------------------------------------------------------------------");
-   Print("tickSize : ", tickSize, 
-            "\n", "tickValue : ", tickValue, 
-            "\n", "lotStep : ", lotStep,
-            "\n", "riskPercent : ", riskPercent,
-            "\n", "riskMoney : ", riskMoney,
-            "\n", "LOt size : ", lots);
-            
+   Print("---------------------------------------------------------------------");            
    Print("riskMoney => ", riskMoney,
          "\nLot Size => ", lots,
          "\nslDistance => ", slDistance);
