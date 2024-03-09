@@ -98,3 +98,8 @@ void OnTick(){
            " | slowMa[1] : ", DoubleToString(slowMa[1], _Digits),
            "\nPositionsTotal : ", PositionsTotal());   
 }
+
+double calculateLotSize(){
+   double lotSize = 0.01;
+   return lotSize;
+}
