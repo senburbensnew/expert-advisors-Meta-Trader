@@ -6,6 +6,7 @@
 
 input int fastMaPeriod = 8;
 input int slowMaPeriod = 200;
+input double riskPercent = 1.0; // risk % of acccount balance
 int fastMaHandler;
 int slowMaHandler;
 int rsiHandler;
@@ -14,23 +15,22 @@ int enveloppesHandler2;
 CTrade trade;
 bool fastMaAboveSlowMa = false;
 
-int OnInit(){
+int OnInit(){  
    fastMaHandler = iMA(_Symbol, PERIOD_CURRENT, fastMaPeriod, 0, MODE_EMA, PRICE_CLOSE);
-   slowMaHandler = iMA(_Symbol, PERIOD_CURRENT, slowMaPeriod, 0, MODE_SMA, PRICE_CLOSE);  
-   
+   slowMaHandler = iMA(_Symbol, PERIOD_CURRENT, slowMaPeriod, 0, MODE_SMA, PRICE_CLOSE); 
    // Add RSI indicator in subwindow 1
-   rsiHandler = iRSI(_Symbol, PERIOD_CURRENT, 1, PRICE_CLOSE);
+   // rsiHandler = iRSI(_Symbol, PERIOD_CURRENT, 1, PRICE_CLOSE);
    // Add enveloppes 1 indicator in subwindow 1  
-   enveloppesHandler1 = iEnvelopes(_Symbol, PERIOD_CURRENT, 1, 0, MODE_SMMA, PRICE_CLOSE, 6.000);   
+   // enveloppesHandler1 = iEnvelopes(_Symbol, PERIOD_CURRENT, 1, 0, MODE_SMMA, PRICE_CLOSE, 6.000);   
    // Add enveloppes 2 indicator in subwindow 1  
-   enveloppesHandler2 = iEnvelopes(_Symbol, PERIOD_CURRENT, 1, 0, MODE_SMMA, PRICE_CLOSE, 0.0008); 
+   // enveloppesHandler2 = iEnvelopes(_Symbol, PERIOD_CURRENT, 1, 0, MODE_SMMA, PRICE_CLOSE, 0.0008); 
    
    ChartIndicatorAdd(ChartID(), 0, fastMaHandler); 
    ChartIndicatorAdd(ChartID(), 0, slowMaHandler); 
      
-   ChartIndicatorAdd(ChartID(), 1, rsiHandler);  
-   ChartIndicatorAdd(ChartID(), 1, enveloppesHandler1);  
-   ChartIndicatorAdd(ChartID(), 1, enveloppesHandler2);  
+   // ChartIndicatorAdd(ChartID(), 1, rsiHandler);  
+   // ChartIndicatorAdd(ChartID(), 1, enveloppesHandler1);  
+   // ChartIndicatorAdd(ChartID(), 1, enveloppesHandler2);  
    
    fastMaAboveSlowMa = checkIfFastMaIsAboveOrBelowSlowMa();
    
@@ -66,29 +66,31 @@ void OnTick(){
       ask = NormalizeDouble(ask, _Digits); 
       double sl = slowMa[1];
       sl = NormalizeDouble(sl, _Digits); 
-      double tp = ask + (ask - sl) * 3;
+      double tp = (ask + (ask - sl)) * 3;
       tp = NormalizeDouble(tp, _Digits);
-      // trade.Buy(lotsize, _Symbol, ask, sl, tp);
+      Print("Entry => ", ask, "TP => ", tp, ", SL => ", sl);
+      trade.Buy(calculateLotSize(riskPercent, ask-sl), _Symbol, ask, sl, tp);
       /*string message = "Buy position taken for " + _Symbol;
       Print(message);
       SendNotification(message); */
-      trade.Buy(0.01, _Symbol, ask, sl, tp);
+      // trade.Buy(0.01, _Symbol, ask, sl, tp);
       fastMaAboveSlowMa = isAbove;
    }
          
    if(fastMaAboveSlowMa && fastMaAboveSlowMa != isAbove){
       Print("Sell signal. You should sell", " fastMa[1] : ", fastMa[1] , " slowMa[1] : ", slowMa[1]);
-       double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID); 
+      double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID); 
       bid = NormalizeDouble(bid, _Digits); 
       double sl = slowMa[1];
       sl = NormalizeDouble(sl, _Digits); 
-      double tp = bid - (sl - bid) * 3;
+      double tp = (bid - (sl - bid)) * 3;
       tp = NormalizeDouble(tp, _Digits);
-      // trade.Sell(lotsize, _Symbol, bid, sl, tp);
+      Print("Entry => ", bid, "TP => ", tp, ", SL => ", sl);
+      trade.Sell(calculateLotSize(riskPercent, sl-bid), _Symbol, bid, sl, tp);
       /*string message = "Sell position taken for " + _Symbol;
       Print(message);
       SendNotification(message); */
-      trade.Sell(0.01, _Symbol, bid, sl, tp);
+      // trade.Sell(0.01, _Symbol, bid, sl, tp);
       fastMaAboveSlowMa = isAbove;
    }
       
@@ -96,10 +98,39 @@ void OnTick(){
            " | fastMa[1] : ", DoubleToString(fastMa[1], _Digits),
            "\nslowMa[0] : ", DoubleToString(slowMa[0], _Digits),
            " | slowMa[1] : ", DoubleToString(slowMa[1], _Digits),
-           "\nPositionsTotal : ", PositionsTotal());   
+           "\nPositionsTotal : ", PositionsTotal()); 
 }
 
-double calculateLotSize(){
-   double lotSize = 0.01;
-   return lotSize;
+double calculateLotSize(double riskPercent, double slDistance){   
+   double tickSize = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_SIZE);
+   double tickValue = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_VALUE);
+   double lotStep = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP);   
+   
+   if(tickSize == 0 || tickValue == 0 || lotStep == 0){
+      Print(__FUNCTION__, " > LotSize cannot be calculated...");
+      return 0;
+   }
+   
+   double riskMoney = AccountInfoDouble(ACCOUNT_BALANCE) * riskPercent / 100;
+   double moneyLotStep = (slDistance / tickSize) * tickValue * lotStep;
+   
+   if(moneyLotStep == 0) {
+      Print(__FUNCTION__, " > cannot divide by zero ...");
+      return 0;
+   }
+   double lots = MathFloor(riskMoney / moneyLotStep) * lotStep;
+   Print("---------------------------------------------------------------------");
+   Print("tickSize : ", tickSize, 
+            "\n", "tickValue : ", tickValue, 
+            "\n", "lotStep : ", lotStep,
+            "\n", "riskPercent : ", riskPercent,
+            "\n", "riskMoney : ", riskMoney,
+            "\n", "LOt size : ", lots);
+            
+   Print("riskMoney => ", riskMoney,
+         "\nLot Size => ", lots,
+         "\nslDistance => ", slDistance);
+   Print("---------------------------------------------------------------------");
+   
+   return lots;
 }
