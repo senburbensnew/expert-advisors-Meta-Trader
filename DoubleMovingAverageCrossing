@@ -19,18 +19,18 @@ int OnInit(){
    fastMaHandler = iMA(_Symbol, PERIOD_CURRENT, fastMaPeriod, 0, MODE_EMA, PRICE_CLOSE);
    slowMaHandler = iMA(_Symbol, PERIOD_CURRENT, slowMaPeriod, 0, MODE_SMA, PRICE_CLOSE); 
    // Add RSI indicator in subwindow 1
-   // rsiHandler = iRSI(_Symbol, PERIOD_CURRENT, 1, PRICE_CLOSE);
+   rsiHandler = iRSI(_Symbol, PERIOD_CURRENT, 1, PRICE_CLOSE);
    // Add enveloppes 1 indicator in subwindow 1  
-   // enveloppesHandler1 = iEnvelopes(_Symbol, PERIOD_CURRENT, 1, 0, MODE_SMMA, PRICE_CLOSE, 6.000);   
+   enveloppesHandler1 = iEnvelopes(_Symbol, PERIOD_CURRENT, 1, 0, MODE_SMMA, PRICE_CLOSE, 6.000);   
    // Add enveloppes 2 indicator in subwindow 1  
-   // enveloppesHandler2 = iEnvelopes(_Symbol, PERIOD_CURRENT, 1, 0, MODE_SMMA, PRICE_CLOSE, 0.0008); 
+   enveloppesHandler2 = iEnvelopes(_Symbol, PERIOD_CURRENT, 1, 0, MODE_SMMA, PRICE_CLOSE, 0.0008); 
    
    ChartIndicatorAdd(ChartID(), 0, fastMaHandler); 
    ChartIndicatorAdd(ChartID(), 0, slowMaHandler); 
      
-   // ChartIndicatorAdd(ChartID(), 1, rsiHandler);  
-   // ChartIndicatorAdd(ChartID(), 1, enveloppesHandler1);  
-   // ChartIndicatorAdd(ChartID(), 1, enveloppesHandler2);  
+   ChartIndicatorAdd(ChartID(), 1, rsiHandler);  
+   ChartIndicatorAdd(ChartID(), 1, enveloppesHandler1);  
+   ChartIndicatorAdd(ChartID(), 1, enveloppesHandler2);  
    
    fastMaAboveSlowMa = checkIfFastMaIsAboveOrBelowSlowMa();
    
@@ -70,10 +70,9 @@ void OnTick(){
       tp = NormalizeDouble(tp, _Digits);
       Print("Entry => ", ask, "TP => ", tp, ", SL => ", sl);
       trade.Buy(calculateLotSize(riskPercent, ask-sl), _Symbol, ask, sl, tp);
-      /*string message = "Buy position taken for " + _Symbol;
+      string message = "Buy position taken for " + _Symbol;
       Print(message);
-      SendNotification(message); */
-      // trade.Buy(0.01, _Symbol, ask, sl, tp);
+      SendNotification(message);
       fastMaAboveSlowMa = isAbove;
    }
          
@@ -87,10 +86,9 @@ void OnTick(){
       tp = NormalizeDouble(tp, _Digits);
       Print("Entry => ", bid, "TP => ", tp, ", SL => ", sl);
       trade.Sell(calculateLotSize(riskPercent, sl-bid), _Symbol, bid, sl, tp);
-      /*string message = "Sell position taken for " + _Symbol;
+      string message = "Sell position taken for " + _Symbol;
       Print(message);
-      SendNotification(message); */
-      // trade.Sell(0.01, _Symbol, bid, sl, tp);
+      SendNotification(message);
       fastMaAboveSlowMa = isAbove;
    }
       
