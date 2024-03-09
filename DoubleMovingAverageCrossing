@@ -1,0 +1,100 @@
+#property copyright "Copyright 2024, MetaQuotes Ltd."
+#property link      "https://www.mql5.com"
+#property version   "1.00"
+
+#include <Trade/Trade.mqh>
+
+input int fastMaPeriod = 8;
+input int slowMaPeriod = 200;
+int fastMaHandler;
+int slowMaHandler;
+int rsiHandler;
+int enveloppesHandler1;
+int enveloppesHandler2;
+CTrade trade;
+bool fastMaAboveSlowMa = false;
+
+int OnInit(){
+   fastMaHandler = iMA(_Symbol, PERIOD_CURRENT, fastMaPeriod, 0, MODE_EMA, PRICE_CLOSE);
+   slowMaHandler = iMA(_Symbol, PERIOD_CURRENT, slowMaPeriod, 0, MODE_SMA, PRICE_CLOSE);  
+   
+   // Add RSI indicator in subwindow 1
+   rsiHandler = iRSI(_Symbol, PERIOD_CURRENT, 1, PRICE_CLOSE);
+   // Add enveloppes 1 indicator in subwindow 1  
+   enveloppesHandler1 = iEnvelopes(_Symbol, PERIOD_CURRENT, 1, 0, MODE_SMMA, PRICE_CLOSE, 6.000);   
+   // Add enveloppes 2 indicator in subwindow 1  
+   enveloppesHandler2 = iEnvelopes(_Symbol, PERIOD_CURRENT, 1, 0, MODE_SMMA, PRICE_CLOSE, 0.0008); 
+   
+   ChartIndicatorAdd(ChartID(), 0, fastMaHandler); 
+   ChartIndicatorAdd(ChartID(), 0, slowMaHandler); 
+     
+   ChartIndicatorAdd(ChartID(), 1, rsiHandler);  
+   ChartIndicatorAdd(ChartID(), 1, enveloppesHandler1);  
+   ChartIndicatorAdd(ChartID(), 1, enveloppesHandler2);  
+   
+   fastMaAboveSlowMa = checkIfFastMaIsAboveOrBelowSlowMa();
+   
+   return(INIT_SUCCEEDED);
+}
+
+bool checkIfFastMaIsAboveOrBelowSlowMa(){
+   bool isAbove = false;
+   double fastMa[];
+   double slowMa[];   
+   CopyBuffer(fastMaHandler, MAIN_LINE, 1, 2, fastMa);
+   CopyBuffer(slowMaHandler, MAIN_LINE, 1, 2, slowMa); 
+   
+   if(fastMa[1] > slowMa[1])
+      isAbove = true;
+   
+   return isAbove;
+}  
+
+void OnDeinit(const int reason){}
+
+void OnTick(){
+   bool isAbove = checkIfFastMaIsAboveOrBelowSlowMa();
+   
+   double fastMa[];
+   double slowMa[];   
+   CopyBuffer(fastMaHandler, MAIN_LINE, 1, 2, fastMa);
+   CopyBuffer(slowMaHandler, MAIN_LINE, 1, 2, slowMa); 
+   
+   if(!fastMaAboveSlowMa && fastMaAboveSlowMa != isAbove){
+      Print("Buy signal. You should buy", " fastMa[1] : ", fastMa[1] , " slowMa[1] : ", slowMa[1]);
+      double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK); 
+      ask = NormalizeDouble(ask, _Digits); 
+      double sl = slowMa[1];
+      sl = NormalizeDouble(sl, _Digits); 
+      double tp = ask + (ask - sl) * 3;
+      tp = NormalizeDouble(tp, _Digits);
+      // trade.Buy(lotsize, _Symbol, ask, sl, tp);
+      /*string message = "Buy position taken for " + _Symbol;
+      Print(message);
+      SendNotification(message); */
+      trade.Buy(0.01, _Symbol, ask, sl, tp);
+      fastMaAboveSlowMa = isAbove;
+   }
+         
+   if(fastMaAboveSlowMa && fastMaAboveSlowMa != isAbove){
+      Print("Sell signal. You should sell", " fastMa[1] : ", fastMa[1] , " slowMa[1] : ", slowMa[1]);
+       double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID); 
+      bid = NormalizeDouble(bid, _Digits); 
+      double sl = slowMa[1];
+      sl = NormalizeDouble(sl, _Digits); 
+      double tp = bid - (sl - bid) * 3;
+      tp = NormalizeDouble(tp, _Digits);
+      // trade.Sell(lotsize, _Symbol, bid, sl, tp);
+      /*string message = "Sell position taken for " + _Symbol;
+      Print(message);
+      SendNotification(message); */
+      trade.Sell(0.01, _Symbol, bid, sl, tp);
+      fastMaAboveSlowMa = isAbove;
+   }
+      
+   Comment("fastMa[0] : ", DoubleToString(fastMa[0], _Digits),
+           " | fastMa[1] : ", DoubleToString(fastMa[1], _Digits),
+           "\nslowMa[0] : ", DoubleToString(slowMa[0], _Digits),
+           " | slowMa[1] : ", DoubleToString(slowMa[1], _Digits),
+           "\nPositionsTotal : ", PositionsTotal());   
+}
