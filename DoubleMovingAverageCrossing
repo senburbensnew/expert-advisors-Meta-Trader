@@ -47,6 +47,7 @@ void OnDeinit(const int reason){}
 
 void OnTick(){ 
    bool isAbove = checkIfFastMaIsAboveOrBelowSlowMa();
+   bool positionAlreadyTakenForCurrentSymbol = chekIfPositionForCurrentSymbolIsAlreadyOpen();
    
    if(PositionsTotal() == 0){   
       if(!fastMaAboveSlowMa && fastMaAboveSlowMa != isAbove){
@@ -60,7 +61,7 @@ void OnTick(){
             double tp = ask + (ask - sl) * tpRatio;
             tp = NormalizeDouble(tp, _Digits); 
          */
-         // trade.Buy(calculateLotSize(ask-sl), _Symbol, ask, sl, tp);
+         trade.Buy(calculateLotSize(ask-sl), _Symbol, ask, sl, tp);
          string message = "Buy position taken for " + _Symbol;
          Print(message);
          SendNotification(message);
@@ -78,7 +79,7 @@ void OnTick(){
             double tp = bid - (sl - bid) * tpRatio;
             tp = NormalizeDouble(tp, _Digits); 
          */
-         // trade.Sell(calculateLotSize(sl-bid), _Symbol, bid, sl, tp);
+         trade.Sell(calculateLotSize(sl-bid), _Symbol, bid, sl, tp);
          string message = "Sell position taken for " + _Symbol;
          Print(message);
          SendNotification(message);
@@ -99,6 +100,7 @@ void checkForUpdateSLAndTP(){}
 
 bool chekIfPositionForCurrentSymbolIsAlreadyOpen(){
    bool positionAlreadyOpen = false;
+   // PositionsTotal()
    return false;
 }
 
