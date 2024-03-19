@@ -22,22 +22,28 @@ enum PositionDirection{ Buy, Sell };
 int OnInit(){  
    fastMaHandler = iMA(_Symbol, PERIOD_CURRENT, fastMaPeriod, 0, MODE_EMA, PRICE_CLOSE);
    slowMaHandler = iMA(_Symbol, PERIOD_CURRENT, slowMaPeriod, 0, MODE_SMA, PRICE_CLOSE); 
+   
    rsiHandler = iRSI(_Symbol, PERIOD_CURRENT, 1, PRICE_CLOSE); // Add RSI indicator in subwindow 1 
    enveloppesHandler1 = iEnvelopes(_Symbol, PERIOD_CURRENT, 1, 0, MODE_SMMA, PRICE_CLOSE, 6.000); // Add enveloppes 1 indicator in subwindow 1   
    enveloppesHandler2 = iEnvelopes(_Symbol, PERIOD_CURRENT, 1, 0, MODE_SMMA, PRICE_CLOSE, 0.0008); // Add enveloppes 2 indicator in subwindow 1  
+   
    ChartIndicatorAdd(ChartID(), 0, fastMaHandler); 
    ChartIndicatorAdd(ChartID(), 0, slowMaHandler); 
    ChartIndicatorAdd(ChartID(), 1, rsiHandler);  
    ChartIndicatorAdd(ChartID(), 1, enveloppesHandler1);  
-   ChartIndicatorAdd(ChartID(), 1, enveloppesHandler2);  
+   ChartIndicatorAdd(ChartID(), 1, enveloppesHandler2); 
+    
    fastMaAboveSlowMa = checkIfFastMaIsAboveOrBelowSlowMa();
+   
    return(INIT_SUCCEEDED);
 }
 
 bool checkIfFastMaIsAboveOrBelowSlowMa(){
    bool isAbove = false; 
+   
    CopyBuffer(fastMaHandler, MAIN_LINE, 1, 2, fastMa);
    CopyBuffer(slowMaHandler, MAIN_LINE, 1, 2, slowMa); 
+   
    if(fastMa[1] > slowMa[1])
       isAbove = true;
    return isAbove;
@@ -49,45 +55,57 @@ void OnTick(){
    bool isAbove = checkIfFastMaIsAboveOrBelowSlowMa();
    bool positionAlreadyTakenForCurrentSymbol = chekIfPositionForCurrentSymbolIsAlreadyOpen();
    
-   if(PositionsTotal() == 0){   
-      if(!fastMaAboveSlowMa && fastMaAboveSlowMa != isAbove){
+   if(PositionsTotal() == 0){
+     if(fastMaAboveSlowMa != isAbove){
+        if(fastMaAboveSlowMa){
+           Print("Buy signal. You should buy", " fastMa[1] : ", fastMa[1] , " slowMa[1] : ", slowMa[1]);
+           double ask = getAskPrice();
+           double sl = calculateStopLoss();
+           double tp = calculateTakeProfit(PositionDirection::Buy, ask, sl);
+           trade.Buy(calculateLotSize(ask-sl), _Symbol, ask, sl, tp);
+           string message = "Buy position taken for " + _Symbol;
+           SendNotification(message);
+           fastMaAboveSlowMa = isAbove;
+        }else{
+            Print("Sell signal. You should sell", " fastMa[1] : ", fastMa[1] , " slowMa[1] : ", slowMa[1]);
+            double bid = getBidPrice();
+            double sl = calculateStopLoss();
+            double tp = calculateTakeProfit(PositionDirection::Sell, bid, sl);
+            trade.Sell(calculateLotSize(sl-bid), _Symbol, bid, sl, tp);
+            string message = "Sell position taken for " + _Symbol;
+            SendNotification(message);
+            fastMaAboveSlowMa = isAbove;
+        }
+     }
+   }else{
+      checkForUpdateSLAndTP();
+   }
+      
+   /* if(PositionsTotal() == 0){   
+      if(fastMaAboveSlowMa != isAbove && fastMaAboveSlowMa){
          Print("Buy signal. You should buy", " fastMa[1] : ", fastMa[1] , " slowMa[1] : ", slowMa[1]);
          double ask = getAskPrice();
          double sl = calculateStopLoss();
          double tp = calculateTakeProfit(PositionDirection::Buy, ask, sl);
-         /* 
-            double sl = slowMa[1];
-            sl = NormalizeDouble(sl, _Digits); 
-            double tp = ask + (ask - sl) * tpRatio;
-            tp = NormalizeDouble(tp, _Digits); 
-         */
          trade.Buy(calculateLotSize(ask-sl), _Symbol, ask, sl, tp);
          string message = "Buy position taken for " + _Symbol;
-         Print(message);
          SendNotification(message);
          fastMaAboveSlowMa = isAbove;
       }
             
-      if(fastMaAboveSlowMa && fastMaAboveSlowMa != isAbove){
+      if(fastMaAboveSlowMa != isAbove && !fastMaAboveSlowMa){
          Print("Sell signal. You should sell", " fastMa[1] : ", fastMa[1] , " slowMa[1] : ", slowMa[1]);
          double bid = getBidPrice();
          double sl = calculateStopLoss();
          double tp = calculateTakeProfit(PositionDirection::Sell, bid, sl);
-         /* 
-            double sl = slowMa[1];
-            sl = NormalizeDouble(sl, _Digits); 
-            double tp = bid - (sl - bid) * tpRatio;
-            tp = NormalizeDouble(tp, _Digits); 
-         */
          trade.Sell(calculateLotSize(sl-bid), _Symbol, bid, sl, tp);
          string message = "Sell position taken for " + _Symbol;
-         Print(message);
          SendNotification(message);
          fastMaAboveSlowMa = isAbove;
       }
    }else{
       checkForUpdateSLAndTP();
-   }
+   } */
       
    Comment("fastMa[0] : ", DoubleToString(fastMa[0], _Digits),
            " | fastMa[1] : ", DoubleToString(fastMa[1], _Digits),
@@ -100,7 +118,6 @@ void checkForUpdateSLAndTP(){}
 
 bool chekIfPositionForCurrentSymbolIsAlreadyOpen(){
    bool positionAlreadyOpen = false;
-   // PositionsTotal()
    return false;
 }
 
@@ -118,6 +135,7 @@ double getBidPrice(){
 
 double calculateStopLoss(){
      double sl = slowMa[1];
+     Print("slowMa[1] ===> ", slowMa[1]);
      sl = NormalizeDouble(sl, _Digits); 
      return sl;
 }
@@ -160,5 +178,6 @@ double calculateLotSize(double slDistance){
          "\nslDistance => ", slDistance);
    Print("---------------------------------------------------------------------");
    
+   lots = lots < 0.01 ? 0.01 : lots;
    return lots;
 }
