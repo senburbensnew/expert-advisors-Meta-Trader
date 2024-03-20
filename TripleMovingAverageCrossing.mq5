@@ -5,22 +5,30 @@
 #include <Trade/Trade.mqh>
 
 input int fastMaPeriod = 8;
+input int middleMaPeriod = 55;
 input int slowMaPeriod = 200;
 input double riskPercent = 1.0; // risk % of acccount balance
 input int tpRatio = 5;
+
 int fastMaHandler;
+int middleMaHandler;
 int slowMaHandler;
+
 double fastMa[];
-double slowMa[];   
+double slowMa[]; 
+  
 int rsiHandler;
 int enveloppesHandler1;
 int enveloppesHandler2;
+
 CTrade trade;
+
 bool fastMaAboveSlowMa = false;
 enum PositionDirection{ Buy, Sell };   
 
 int OnInit(){  
    fastMaHandler = iMA(_Symbol, PERIOD_CURRENT, fastMaPeriod, 0, MODE_EMA, PRICE_CLOSE);
+   middleMaHandler = iMA(_Symbol, PERIOD_CURRENT, middleMaPeriod, 0, MODE_EMA, PRICE_CLOSE);
    slowMaHandler = iMA(_Symbol, PERIOD_CURRENT, slowMaPeriod, 0, MODE_SMA, PRICE_CLOSE); 
    
    rsiHandler = iRSI(_Symbol, PERIOD_CURRENT, 1, PRICE_CLOSE); // Add RSI indicator in subwindow 1 
@@ -28,7 +36,9 @@ int OnInit(){
    enveloppesHandler2 = iEnvelopes(_Symbol, PERIOD_CURRENT, 1, 0, MODE_SMMA, PRICE_CLOSE, 0.0008); // Add enveloppes 2 indicator in subwindow 1  
    
    ChartIndicatorAdd(ChartID(), 0, fastMaHandler); 
+   ChartIndicatorAdd(ChartID(), 0, middleMaHandler); 
    ChartIndicatorAdd(ChartID(), 0, slowMaHandler); 
+   
    ChartIndicatorAdd(ChartID(), 1, rsiHandler);  
    ChartIndicatorAdd(ChartID(), 1, enveloppesHandler1);  
    ChartIndicatorAdd(ChartID(), 1, enveloppesHandler2); 
@@ -44,8 +54,9 @@ bool checkIfFastMaIsAboveOrBelowSlowMa(){
    CopyBuffer(fastMaHandler, MAIN_LINE, 1, 2, fastMa);
    CopyBuffer(slowMaHandler, MAIN_LINE, 1, 2, slowMa); 
    
-   if(fastMa[1] > slowMa[1])
+   if(fastMa[1] > slowMa[1]){
       isAbove = true;
+   }
    return isAbove;
 }  
 
@@ -62,7 +73,7 @@ void OnTick(){
            double ask = getAskPrice();
            double sl = calculateStopLoss();
            double tp = calculateTakeProfit(PositionDirection::Buy, ask, sl);
-           trade.Buy(calculateLotSize(ask-sl), _Symbol, ask, sl, tp);
+           // trade.Buy(calculateLotSize(ask-sl), _Symbol, ask, sl, tp);
            string message = "Buy position taken for " + _Symbol;
            SendNotification(message);
            fastMaAboveSlowMa = isAbove;
@@ -71,7 +82,7 @@ void OnTick(){
             double bid = getBidPrice();
             double sl = calculateStopLoss();
             double tp = calculateTakeProfit(PositionDirection::Sell, bid, sl);
-            trade.Sell(calculateLotSize(sl-bid), _Symbol, bid, sl, tp);
+            // trade.Sell(calculateLotSize(sl-bid), _Symbol, bid, sl, tp);
             string message = "Sell position taken for " + _Symbol;
             SendNotification(message);
             fastMaAboveSlowMa = isAbove;
