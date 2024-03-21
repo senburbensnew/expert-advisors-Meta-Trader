@@ -44,12 +44,12 @@ int OnInit(){
    ChartIndicatorAdd(ChartID(), 1, enveloppesHandler1);  
    ChartIndicatorAdd(ChartID(), 1, enveloppesHandler2); 
     
-   trendDirection = checkIfFastMaIsAboveOrBelowSlowMa();
+   trendDirection = checkForNewTrend();
    
    return(INIT_SUCCEEDED);
 }
 
-PositionDirection checkIfFastMaIsAboveOrBelowSlowMa(){
+PositionDirection checkForNewTrend(){
    PositionDirection actionToTake =  PositionDirection::DoNothing;
    
    CopyBuffer(fastMaHandler, MAIN_LINE, 1, 2, fastMa);
@@ -68,7 +68,7 @@ PositionDirection checkIfFastMaIsAboveOrBelowSlowMa(){
 void OnDeinit(const int reason){}
 
 void OnTick(){ 
-   PositionDirection checkForNewDirection = checkIfFastMaIsAboveOrBelowSlowMa();
+   PositionDirection checkForNewDirection = checkForNewTrend();
    bool positionAlreadyTakenForCurrentSymbol = chekIfPositionForCurrentSymbolIsAlreadyOpen();
    
    if(PositionsTotal() == 0){
