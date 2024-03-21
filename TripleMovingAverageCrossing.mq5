@@ -15,6 +15,7 @@ int middleMaHandler;
 int slowMaHandler;
 
 double fastMa[];
+double middleMa[];
 double slowMa[]; 
   
 int rsiHandler;
@@ -23,8 +24,8 @@ int enveloppesHandler2;
 
 CTrade trade;
 
-bool fastMaAboveSlowMa = false;
-enum PositionDirection{ Buy, Sell };   
+enum PositionDirection{ Buy, Sell, DoNothing };   
+PositionDirection trendDirection = PositionDirection::DoNothing;
 
 int OnInit(){  
    fastMaHandler = iMA(_Symbol, PERIOD_CURRENT, fastMaPeriod, 0, MODE_EMA, PRICE_CLOSE);
@@ -43,80 +44,56 @@ int OnInit(){
    ChartIndicatorAdd(ChartID(), 1, enveloppesHandler1);  
    ChartIndicatorAdd(ChartID(), 1, enveloppesHandler2); 
     
-   fastMaAboveSlowMa = checkIfFastMaIsAboveOrBelowSlowMa();
+   trendDirection = checkIfFastMaIsAboveOrBelowSlowMa();
    
    return(INIT_SUCCEEDED);
 }
 
-bool checkIfFastMaIsAboveOrBelowSlowMa(){
-   bool isAbove = false; 
+PositionDirection checkIfFastMaIsAboveOrBelowSlowMa(){
+   PositionDirection actionToTake =  PositionDirection::DoNothing;
    
    CopyBuffer(fastMaHandler, MAIN_LINE, 1, 2, fastMa);
+   CopyBuffer(middleMaHandler, MAIN_LINE, 1, 2, middleMa);
    CopyBuffer(slowMaHandler, MAIN_LINE, 1, 2, slowMa); 
    
-   if(fastMa[1] > slowMa[1]){
-      isAbove = true;
+   if(fastMa[1] > middleMa[1] && middleMa[1] > slowMa[1]){ 
+      actionToTake = PositionDirection::Buy;
+   }else if(fastMa[1] < middleMa[1] && middleMa[1] < slowMa[1]){
+      actionToTake = PositionDirection::Sell;
    }
-   return isAbove;
+   
+   return actionToTake;
 }  
 
 void OnDeinit(const int reason){}
 
 void OnTick(){ 
-   bool isAbove = checkIfFastMaIsAboveOrBelowSlowMa();
+   PositionDirection checkForNewDirection = checkIfFastMaIsAboveOrBelowSlowMa();
    bool positionAlreadyTakenForCurrentSymbol = chekIfPositionForCurrentSymbolIsAlreadyOpen();
    
    if(PositionsTotal() == 0){
-     if(fastMaAboveSlowMa != isAbove){
-        if(fastMaAboveSlowMa){
-           Print("Buy signal. You should buy", " fastMa[1] : ", fastMa[1] , " slowMa[1] : ", slowMa[1]);
-           double ask = getAskPrice();
-           double sl = calculateStopLoss();
-           double tp = calculateTakeProfit(PositionDirection::Buy, ask, sl);
-           // trade.Buy(calculateLotSize(ask-sl), _Symbol, ask, sl, tp);
-           string message = "Buy position taken for " + _Symbol;
-           SendNotification(message);
-           fastMaAboveSlowMa = isAbove;
-        }else{
-            Print("Sell signal. You should sell", " fastMa[1] : ", fastMa[1] , " slowMa[1] : ", slowMa[1]);
-            double bid = getBidPrice();
-            double sl = calculateStopLoss();
-            double tp = calculateTakeProfit(PositionDirection::Sell, bid, sl);
-            // trade.Sell(calculateLotSize(sl-bid), _Symbol, bid, sl, tp);
-            string message = "Sell position taken for " + _Symbol;
-            SendNotification(message);
-            fastMaAboveSlowMa = isAbove;
-        }
+     if(trendDirection != checkForNewDirection && checkForNewDirection == PositionDirection::Buy){
+        Print("Buy signal. You should buy", " fastMa[1] : ", fastMa[1] , " slowMa[1] : ", slowMa[1]);
+        double ask = getAskPrice();
+        double sl = calculateStopLoss();
+        double tp = calculateTakeProfit(PositionDirection::Buy, ask, sl);
+        // trade.Buy(calculateLotSize(ask-sl), _Symbol, ask, sl, tp);
+        string message = "Buy position taken for " + _Symbol;
+        SendNotification(message);
+        trendDirection = checkForNewDirection;
+     }else if(trendDirection != checkForNewDirection && checkForNewDirection == PositionDirection::Sell){
+        Print("Sell signal. You should sell", " fastMa[1] : ", fastMa[1] , " slowMa[1] : ", slowMa[1]);
+        double bid = getBidPrice();
+        double sl = calculateStopLoss();
+        double tp = calculateTakeProfit(PositionDirection::Sell, bid, sl);
+        // trade.Sell(calculateLotSize(sl-bid), _Symbol, bid, sl, tp);
+        string message = "Sell position taken for " + _Symbol;
+        SendNotification(message);
+        trendDirection = checkForNewDirection;
      }
    }else{
       checkForUpdateSLAndTP();
    }
-      
-   /* if(PositionsTotal() == 0){   
-      if(fastMaAboveSlowMa != isAbove && fastMaAboveSlowMa){
-         Print("Buy signal. You should buy", " fastMa[1] : ", fastMa[1] , " slowMa[1] : ", slowMa[1]);
-         double ask = getAskPrice();
-         double sl = calculateStopLoss();
-         double tp = calculateTakeProfit(PositionDirection::Buy, ask, sl);
-         trade.Buy(calculateLotSize(ask-sl), _Symbol, ask, sl, tp);
-         string message = "Buy position taken for " + _Symbol;
-         SendNotification(message);
-         fastMaAboveSlowMa = isAbove;
-      }
-            
-      if(fastMaAboveSlowMa != isAbove && !fastMaAboveSlowMa){
-         Print("Sell signal. You should sell", " fastMa[1] : ", fastMa[1] , " slowMa[1] : ", slowMa[1]);
-         double bid = getBidPrice();
-         double sl = calculateStopLoss();
-         double tp = calculateTakeProfit(PositionDirection::Sell, bid, sl);
-         trade.Sell(calculateLotSize(sl-bid), _Symbol, bid, sl, tp);
-         string message = "Sell position taken for " + _Symbol;
-         SendNotification(message);
-         fastMaAboveSlowMa = isAbove;
-      }
-   }else{
-      checkForUpdateSLAndTP();
-   } */
       
    Comment("fastMa[0] : ", DoubleToString(fastMa[0], _Digits),
            " | fastMa[1] : ", DoubleToString(fastMa[1], _Digits),
