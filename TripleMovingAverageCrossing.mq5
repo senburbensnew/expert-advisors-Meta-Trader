@@ -73,22 +73,22 @@ void OnTick(){
    
    if(PositionsTotal() == 0){
      if(trendDirection != checkForNewDirection && checkForNewDirection == PositionDirection::Buy){
-        Print("Buy signal. You should buy", " fastMa[1] : ", fastMa[1] , " slowMa[1] : ", slowMa[1]);
+        SendNotification("Buy opportunity signal.");
         double ask = getAskPrice();
         double sl = calculateStopLoss();
         double tp = calculateTakeProfit(PositionDirection::Buy, ask, sl);
         // trade.Buy(calculateLotSize(ask-sl), _Symbol, ask, sl, tp);
-        string message = "Buy position taken for " + _Symbol;
-        SendNotification(message);
+        // string message = "Buy position taken for " + _Symbol;
+        // SendNotification(message);
         trendDirection = checkForNewDirection;
      }else if(trendDirection != checkForNewDirection && checkForNewDirection == PositionDirection::Sell){
-        Print("Sell signal. You should sell", " fastMa[1] : ", fastMa[1] , " slowMa[1] : ", slowMa[1]);
+        SendNotification("Sell opportunity signal.");
         double bid = getBidPrice();
         double sl = calculateStopLoss();
         double tp = calculateTakeProfit(PositionDirection::Sell, bid, sl);
         // trade.Sell(calculateLotSize(sl-bid), _Symbol, bid, sl, tp);
-        string message = "Sell position taken for " + _Symbol;
-        SendNotification(message);
+        // string message = "Sell position taken for " + _Symbol;
+        // SendNotification(message);
         trendDirection = checkForNewDirection;
      }
    }else{
