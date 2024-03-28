@@ -84,14 +84,32 @@ void OnTick(){
 }
 
 string currentTimeFrame(){
-   string timeframe = "M5"; 
-   if(PERIOD_CURRENT == PERIOD_M1) {timeframe = "M1";};
-   if(PERIOD_CURRENT == PERIOD_M5) {timeframe = "M5";};
-   if(PERIOD_CURRENT == PERIOD_M30){timeframe = "M30";};
-   if(PERIOD_CURRENT == PERIOD_H1) {timeframe = "H1";};
-   if(PERIOD_CURRENT == PERIOD_H4) {timeframe = "H4";};
-   if(PERIOD_CURRENT == PERIOD_D1) {timeframe = "D1";};
-   if(PERIOD_CURRENT == PERIOD_W1) {timeframe = "W1";};
-   if(PERIOD_CURRENT == PERIOD_MN1){timeframe = "MN";};   
+   string timeframe = "M1"; 
+   long currentPeriod = Period();
+   
+   switch(currentPeriod){
+      case 1:
+      case 5:
+      case 15:
+      case 30:
+        timeframe = "M"+currentPeriod;
+      break;
+      case 16385 :
+        timeframe = "H1";
+      break;
+      case 16388:
+        timeframe = "H4";
+      break;
+      case 16408:
+        timeframe = "D1";
+      break;
+      case 32769:
+        timeframe = "W1";
+      break;
+      case 49153:
+        timeframe = "MN1";
+      break;
+   }
+   
    return timeframe;
 }
