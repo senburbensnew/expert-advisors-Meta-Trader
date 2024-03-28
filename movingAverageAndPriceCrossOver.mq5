@@ -4,11 +4,15 @@
 
 #include <Trade/Trade.mqh>
 
+input int fastMaPeriod = 8;
+input int middleMaPeriod = 55;
 input int maPeriod = 200;
 input double riskPercent = 1.0; // risk % of acccount balance
 input int tpRatio = 5;
 
 int maHandler;
+int fastMaHandler;
+int middleMaHandler;
 
 int rsiHandler;
 int enveloppesHandler1;
@@ -20,12 +24,16 @@ PositionDirection trendDirection = PositionDirection::Bullish;
 CTrade trade;
 
 int OnInit(){  
-      maHandler = iMA(_Symbol, PERIOD_CURRENT, maPeriod, 0, MODE_SMA, PRICE_CLOSE);
+   fastMaHandler = iMA(_Symbol, PERIOD_CURRENT, fastMaPeriod, 0, MODE_EMA, PRICE_CLOSE);
+   middleMaHandler = iMA(_Symbol, PERIOD_CURRENT, middleMaPeriod, 0, MODE_EMA, PRICE_CLOSE);
+   maHandler = iMA(_Symbol, PERIOD_CURRENT, maPeriod, 0, MODE_SMA, PRICE_CLOSE);
 
    rsiHandler = iRSI(_Symbol, PERIOD_CURRENT, 1, PRICE_CLOSE); // Add RSI indicator in subwindow 1 
    enveloppesHandler1 = iEnvelopes(_Symbol, PERIOD_CURRENT, 1, 0, MODE_SMMA, PRICE_CLOSE, 6.000); // Add enveloppes 1 indicator in subwindow 1   
    enveloppesHandler2 = iEnvelopes(_Symbol, PERIOD_CURRENT, 1, 0, MODE_SMMA, PRICE_CLOSE, 0.0008); // Add enveloppes 2 indicator in subwindow 1  
 
+   ChartIndicatorAdd(ChartID(), 0, fastMaHandler); 
+   ChartIndicatorAdd(ChartID(), 0, middleMaHandler); 
    ChartIndicatorAdd(ChartID(), 0, maHandler);    
    ChartIndicatorAdd(ChartID(), 1, rsiHandler);  
    ChartIndicatorAdd(ChartID(), 1, enveloppesHandler1);  
@@ -76,10 +84,10 @@ void OnTick(){
      trendDirection = PositionDirection::Bearish;
   }
   
-  Print(trendDirection, " | "
-     ,DoubleToString(ask, _Digits), " | "
-     ,DoubleToString(bid, _Digits), " | ", 
-      DoubleToString(maValue, _Digits)
+  Comment(
+      "ASK => ", DoubleToString(ask, _Digits), "\n",
+      "BID => ", DoubleToString(bid, _Digits), "\n", 
+      "MA_VALUE => ", DoubleToString(maValue, _Digits)
   );
 }
 
