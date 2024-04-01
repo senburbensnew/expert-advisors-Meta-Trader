@@ -13,6 +13,8 @@ input float slFactor = 1;
 input float tpFactor = 10;
 input float trailingStop = 50.0;
 
+input int pipsAway = 20;
+
 input double riskPercent = 1.0; // risk % of acccount balance
 input int tpRatio = 4;
 
@@ -28,10 +30,13 @@ enum PositionDirection{ NoTrend, Bullish, Bearish };
 PositionDirection trendDirection = PositionDirection::NoTrend;
 enum PriceAboveSlowMa { Above, Below, NA };  
 PriceAboveSlowMa priceAboveSlowMA = PriceAboveSlowMa::NA;
+enum OrderDirection{Buy, Sell};
 
 CTrade trade;
 
 int OnInit(){  
+   Print(calculateLotSize(1.0, calculateStopLoss(OrderDirection::Sell)));
+   
    fastMaHandler = iMA(_Symbol, PERIOD_CURRENT, fastMaPeriod, 0, MODE_EMA, PRICE_CLOSE);
    middleMaHandler = iMA(_Symbol, PERIOD_CURRENT, middleMaPeriod, 0, MODE_EMA, PRICE_CLOSE);
    slowMaHandler = iMA(_Symbol, PERIOD_CURRENT, slowMaPeriod, 0, MODE_SMA, PRICE_CLOSE);
@@ -156,18 +161,25 @@ double getBidPrice(){
    return bid;
 }
 
-double calculateStopLoss(){
-   double sl = 0.0; 
-   /* double sl = slowMa[1];
-   Print("slowMa[1] ===> ", slowMa[1]);
-   sl = NormalizeDouble(sl, _Digits); 
-   return sl; */
-   return sl;
+double calculateStopLoss(OrderDirection orderDirection){ 
+   double point = SymbolInfoDouble(Symbol(), SYMBOL_POINT);   
+   double stopLossDistance = pipsAway * point;
+   double stopLossLevel = 0.0;
+   
+   switch(orderDirection){
+      case OrderDirection::Buy :
+         stopLossLevel = NormalizeDouble(getAskPrice() - stopLossDistance, _Digits);
+      break;
+      case OrderDirection::Sell :
+         stopLossLevel = NormalizeDouble(getBidPrice() + stopLossDistance, _Digits);
+      break;
+   }
+   
+   return stopLossLevel;
 }
 
-double calculateLotSize(double slDistance){   
-   double lots = 0.0;
-   /* double tickSize = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_SIZE);
+double calculateLotSize(double riskInPercent, double slDistance){   
+   double tickSize = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_SIZE);
    double tickValue = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_VALUE);
    double lotStep = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP);   
    
@@ -176,34 +188,27 @@ double calculateLotSize(double slDistance){
       return 0;
    }
    
-   double riskMoney = AccountInfoDouble(ACCOUNT_BALANCE) * riskPercent / 100;
+   double riskMoney = AccountInfoDouble(ACCOUNT_BALANCE) * riskInPercent / 100;
    double moneyLotStep = (slDistance / tickSize) * tickValue * lotStep;
    
    if(moneyLotStep == 0) {
-      Print(__FUNCTION__, " > cannot divide by zero ...");
+      Print(__FUNCTION__, " > LotSize cannot be calculated...");
       return 0;
    }
    
-   lots = MathFloor(riskMoney / moneyLotStep) * lotStep;
-   Print("---------------------------------------------------------------------");            
-   Print("riskMoney => ", riskMoney,
-         "\nLot Size => ", lots,
-         "\nslDistance => ", slDistance);
-   Print("---------------------------------------------------------------------");
-   
-   lots = lots < 0.01 ? 0.01 : lots;*/
+   double lots = MathFloor(riskMoney / moneyLotStep) * lotStep;
+      
    return lots; 
 }
 
-/* void checkForUpdateSLAndTP(){}
+void checkForUpdateSLAndTP(){}
 
 bool chekIfPositionForCurrentSymbolIsAlreadyOpen(){
    bool positionAlreadyOpen = false;
    return false;
 }
 
-   
-double calculateTakeProfit(PositionDirection positionDirection, double entryPrice, double sl){
+/* double calculateTakeProfit(PositionDirection positionDirection, double entryPrice, double sl){
      double tp = 0.0;
      switch(positionDirection){
          case PositionDirection::Buy :
@@ -214,35 +219,6 @@ double calculateTakeProfit(PositionDirection positionDirection, double entryPric
             tp = NormalizeDouble(tp, _Digits);
      }
      return tp;
-} 
-
-double calculateLotSize(double slDistance){   
-   double tickSize = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_SIZE);
-   double tickValue = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_VALUE);
-   double lotStep = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP);   
-   
-   if(tickSize == 0 || tickValue == 0 || lotStep == 0){
-      Print(__FUNCTION__, " > LotSize cannot be calculated...");
-      return 0;
-   }
-   
-   double riskMoney = AccountInfoDouble(ACCOUNT_BALANCE) * riskPercent / 100;
-   double moneyLotStep = (slDistance / tickSize) * tickValue * lotStep;
-   
-   if(moneyLotStep == 0) {
-      Print(__FUNCTION__, " > cannot divide by zero ...");
-      return 0;
-   }
-   
-   double lots = MathFloor(riskMoney / moneyLotStep) * lotStep;
-   Print("---------------------------------------------------------------------");            
-   Print("riskMoney => ", riskMoney,
-         "\nLot Size => ", lots,
-         "\nslDistance => ", slDistance);
-   Print("---------------------------------------------------------------------");
-   
-   lots = lots < 0.01 ? 0.01 : lots;
-   return lots;
 } */
 
 string getTrendDirection(){
