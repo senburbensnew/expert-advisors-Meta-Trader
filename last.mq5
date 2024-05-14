@@ -29,6 +29,8 @@ int enveloppesHandler2;
 enum PositionDirection{ NoTrend, Bullish, Bearish };   
 PositionDirection trendDirection = PositionDirection::NoTrend;
 PositionDirection fastAndMiddleMATrendDirection = PositionDirection::NoTrend;
+PositionDirection fastAndSlowMATrendDirection = PositionDirection::NoTrend;
+
 enum PriceAboveSlowMa { Above, Below, NA };  
 PriceAboveSlowMa priceAboveSlowMA = PriceAboveSlowMa::NA;
 enum OrderDirection{Buy, Sell};
@@ -56,6 +58,7 @@ int OnInit(){
    ChartIndicatorAdd(ChartID(), 1, enveloppesHandler2); 
    
    initializeFastAndMiddleMATrendDirection();
+   initializeFastAndSlowMATrendDirection();
    checkPriceAboveSlowMA();
    
    return(INIT_SUCCEEDED);
@@ -65,7 +68,8 @@ void OnDeinit(const int reason){}
 
 void OnTick(){
   checkIfFastMACrossMiddleMA();
-  
+  checkIfFastMACrossSlowMA();
+
   double slowMaBufferValue[];  
   double fastMaBufferValue[];  
   double middleMaBufferValue[];  
@@ -157,6 +161,23 @@ void initializeFastAndMiddleMATrendDirection(){
    }
 }
 
+void initializeFastAndSlowMATrendDirection(){  
+  double fastMaBufferValue[];  
+  double slowMaBufferValue[];  
+  
+  CopyBuffer(fastMaHandler, MAIN_LINE, 1, 2, fastMaBufferValue);
+  CopyBuffer(slowMaHandler, MAIN_LINE, 1, 2, slowMaBufferValue);
+  
+  double fastMaValue = NormalizeDouble(fastMaBufferValue[1], _Digits); 
+  double slowMaValue = NormalizeDouble(slowMaBufferValue[1], _Digits); 
+   
+   if(fastMaValue > slowMaValue){ 
+      fastAndSlowMATrendDirection = PositionDirection::Bullish;
+   }else if(fastMaValue < slowMaValue){
+      fastAndSlowMATrendDirection = PositionDirection::Bearish;
+   }
+}
+
 void checkIfFastMACrossMiddleMA(){
   double fastMaBufferValue[];  
   double middleMaBufferValue[];  
@@ -168,13 +189,34 @@ void checkIfFastMACrossMiddleMA(){
   double middleMaValue = NormalizeDouble(middleMaBufferValue[1], _Digits); 
    
    if(fastMaValue > middleMaValue && fastAndMiddleMATrendDirection != PositionDirection::Bullish){ 
-        string message = "" + _Symbol + ":" + currentTimeFrame() + " ===> Buy signal opportunity.";
+        string message = "" + _Symbol + ":" + currentTimeFrame() + " Fast MA crosses Middle MA ===> Buy signal opportunity.";
         SendNotification(message);
         fastAndMiddleMATrendDirection = PositionDirection::Bullish;
    }else if(fastMaValue < middleMaValue && fastAndMiddleMATrendDirection != PositionDirection::Bearish){
-        string message = "" + _Symbol + ":" + currentTimeFrame() + " ===> Sell signal opportunity.";
+        string message = "" + _Symbol + ":" + currentTimeFrame() + " Fast MA crosses Middle MA ===> Sell signal opportunity.";
         SendNotification(message);
         fastAndMiddleMATrendDirection = PositionDirection::Bearish;
+   }
+} 
+
+void checkIfFastMACrossSlowMA(){
+  double fastMaBufferValue[];  
+  double slowMaBufferValue[];  
+  
+  CopyBuffer(fastMaHandler, MAIN_LINE, 1, 2, fastMaBufferValue);
+  CopyBuffer(slowMaHandler, MAIN_LINE, 1, 2, slowMaBufferValue);
+  
+  double fastMaValue = NormalizeDouble(fastMaBufferValue[1], _Digits); 
+  double slowMaValue = NormalizeDouble(slowMaBufferValue[1], _Digits); 
+   
+   if(fastMaValue > slowMaValue && fastAndSlowMATrendDirection != PositionDirection::Bullish){ 
+        string message = "" + _Symbol + ":" + currentTimeFrame() + " Fast MA crosses Slow MA ===> Buy signal opportunity.";
+        SendNotification(message);
+        fastAndSlowMATrendDirection = PositionDirection::Bullish;
+   }else if(fastMaValue < slowMaValue && fastAndSlowMATrendDirection != PositionDirection::Bearish){
+        string message = "" + _Symbol + ":" + currentTimeFrame() + " Fast MA crosses Slow MA ===> Sell signal opportunity.";
+        SendNotification(message);
+        fastAndSlowMATrendDirection = PositionDirection::Bearish;
    }
 } 
 
