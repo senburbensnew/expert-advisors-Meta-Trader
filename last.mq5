@@ -26,8 +26,8 @@ int middleMaHandler;
 // int enveloppesHandler1;
 // int enveloppesHandler2;
 
-// enum PositionDirection{ NoTrend, Bullish, Bearish };   
-// PositionDirection trendDirection = PositionDirection::NoTrend;
+enum PositionDirection{ NoTrend, Bullish, Bearish };   
+PositionDirection trendDirection = PositionDirection::NoTrend;
 // PositionDirection fastAndMiddleMATrendDirection = PositionDirection::NoTrend;
 // PositionDirection fastAndSlowMATrendDirection = PositionDirection::NoTrend;
 // PositionDirection middleAndSlowMATrendDirection = PositionDirection::NoTrend;
@@ -50,8 +50,8 @@ int OnInit(){
    // enveloppesHandler1 = iEnvelopes(_Symbol, PERIOD_CURRENT, 1, 0, MODE_SMMA, PRICE_CLOSE, 6.000); // Add enveloppes 1 indicator in subwindow 1   
    // enveloppesHandler2 = iEnvelopes(_Symbol, PERIOD_CURRENT, 1, 0, MODE_SMMA, PRICE_CLOSE, 0.0008); // Add enveloppes 2 indicator in subwindow 1  
 
-   // ChartIndicatorAdd(ChartID(), 0, fastMaHandler); 
-   // ChartIndicatorAdd(ChartID(), 0, middleMaHandler); 
+   ChartIndicatorAdd(ChartID(), 0, fastMaHandler); 
+   ChartIndicatorAdd(ChartID(), 0, middleMaHandler); 
    ChartIndicatorAdd(ChartID(), 0, slowMaHandler);
        
    // ChartIndicatorAdd(ChartID(), 1, rsiHandler);  
@@ -127,9 +127,34 @@ void hasPriceCrossSlowMa(){
    }
 }
 
+void tripleMACrossOver(){
+  double slowMaBufferValue[];  
+  double fastMaBufferValue[];  
+  double middleMaBufferValue[];  
+  
+  CopyBuffer(slowMaHandler, MAIN_LINE, 1, 2, slowMaBufferValue);
+  CopyBuffer(fastMaHandler, MAIN_LINE, 1, 2, fastMaBufferValue);
+  CopyBuffer(middleMaHandler, MAIN_LINE, 1, 2, middleMaBufferValue);
+  
+  double slowMaValue = NormalizeDouble(slowMaBufferValue[1], _Digits); 
+  double fastMaValue = NormalizeDouble(fastMaBufferValue[1], _Digits); 
+  double middleMaValue = NormalizeDouble(middleMaBufferValue[1], _Digits); 
+  
+  if(trendDirection != PositionDirection::Bullish && fastMaValue > middleMaValue && middleMaValue > slowMaValue){
+      string message = "" + _Symbol + ":" + currentTimeFrame() + " => Triple MA cross over => Buy signal opportunity.";
+      SendNotification(message);
+      trendDirection = PositionDirection::Bullish;
+  }else if(trendDirection != PositionDirection::Bearish && fastMaValue < middleMaValue && middleMaValue < slowMaValue){
+      string message = "" + _Symbol + ":" + currentTimeFrame() + " => Triple MA cross over => Buy signal opportunity.";
+      SendNotification(message);
+      trendDirection = PositionDirection::Bearish;
+  }
+}
+
 
 void OnTick(){
   hasPriceCrossSlowMa();
+  tripleMACrossOver();
   // checkIfFastMACrossMiddleMA();
   // checkIfFastMACrossSlowMA();
   // checkIfMiddleMACrossSlowMA();
