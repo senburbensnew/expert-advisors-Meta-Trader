@@ -6,9 +6,45 @@ int stochasticOscillatorHandler;
 int slowMaHandler;
 int fastMaHandler;
 int middleMaHandler;
+
 input int fastMaPeriod = 8;
 input int middleMaPeriod = 55;
 input int slowMaPeriod = 200;
+
+static double prevMainValue = 0;
+static double prevSignalValue = 0;
+
+string currentTimeFrame(){
+   string timeframe = "M1"; 
+   long currentPeriod = Period();
+      
+   switch(currentPeriod){
+      case 1:
+      case 5:
+      case 15:
+      case 30:
+        timeframe = "M"+currentPeriod;
+      break;
+      case 16385 :
+        timeframe = "H1";
+      break;
+      case 16388:
+        timeframe = "H4";
+      break;
+      case 16408:
+        timeframe = "D1";
+      break;
+      case 32769:
+        timeframe = "W1";
+      break;
+      case 49153:
+        timeframe = "MN1";
+      break;
+   }   
+   
+   return timeframe;
+}
+
 
 int OnInit()
 {
@@ -70,4 +106,56 @@ void OnTimer(){
     }
 }
 
-void OnTick(){}
+void OnTick()
+{
+   double stochMainBuffer[];
+   double stochSignalBuffer[];
+   
+   // Prepare Stochastic indicator buffers
+   ArraySetAsSeries(stochMainBuffer, true);
+   ArraySetAsSeries(stochSignalBuffer, true);
+   
+   // Copy indicator buffers
+   CopyBuffer(stochasticOscillatorHandler, 0, 0, 3, stochMainBuffer);
+   CopyBuffer(stochasticOscillatorHandler, 1, 0, 3, stochSignalBuffer);
+   
+   // Print Stochastic values
+   Print(_Symbol, "-", currentTimeFrame(), " : Stochastic Main Line: ", 
+         NormalizeDouble(stochMainBuffer[0], 2),
+         " Signal Line: ", 
+         NormalizeDouble(stochSignalBuffer[0], 2));
+   
+   // Previous period's values
+   // static double prevMainValue = 0;
+   // static double prevSignalValue = 0;
+   
+   // Current values
+   double currentMainValue = NormalizeDouble(stochMainBuffer[0], 2);
+   double currentSignalValue = NormalizeDouble(stochSignalBuffer[0], 2);
+   
+   // Conditions for notifications
+   bool crossedBelow80 = (prevMainValue > 80 && currentMainValue <= 80) || 
+                          (prevSignalValue > 80 && currentSignalValue <= 80);
+   
+   bool crossedAbove20 = (prevMainValue < 20 && currentMainValue >= 20) || 
+                          (prevSignalValue < 20 && currentSignalValue >= 20);
+   
+   // Send notifications
+   if(crossedBelow80)
+   {
+      string message = StringFormat("%s-%s : Stochastic crossed below 80 (Main: %.2f, Signal: %.2f)", 
+                                    Symbol(), currentTimeFrame(), currentMainValue, currentSignalValue);
+      SendNotification(message);
+   }
+   
+   if(crossedAbove20)
+   {
+      string message = StringFormat("%s-%s : Stochastic crossed above 20 (Main: %.2f, Signal: %.2f)", 
+                                    Symbol(), currentTimeFrame(),currentMainValue, currentSignalValue);
+      SendNotification(message);
+   }
+   
+   // Update previous values for next iteration
+   prevMainValue = currentMainValue;
+   prevSignalValue = currentSignalValue;
+}
