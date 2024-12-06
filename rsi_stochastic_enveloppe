@@ -30,7 +30,44 @@ int OnInit()
    ChartIndicatorAdd(ChartID(), 1, enveloppesHandler2); 
    ChartIndicatorAdd(ChartID(), 1, stochasticOscillatorHandler); 
    
+   EventSetTimer(300);
+   
    return(INIT_SUCCEEDED);
+}
+
+void OnTimer(){
+   // Get the total number of open positions
+   int totalPositions = PositionsTotal();
+   
+   // Loop through each open position
+   for(int i = 0; i < totalPositions; i++){
+      // Get the position ticket
+      ulong positionTicket = PositionGetTicket(i);
+      
+      // Get the position information
+      if(PositionSelectByTicket(positionTicket)){
+         // Retrieve the current equity
+         double currentEquity = AccountInfoDouble(ACCOUNT_EQUITY);
+         
+         // Get details of the position
+         string symbol = PositionGetString(POSITION_SYMBOL);
+         double volume = PositionGetDouble(POSITION_VOLUME);
+         double openPrice = PositionGetDouble(POSITION_PRICE_OPEN);
+         double currentPrice = PositionGetDouble(POSITION_PRICE_CURRENT);
+         double profit = PositionGetDouble(POSITION_PROFIT);
+         
+         // Create the notification message
+         string message = StringFormat("Symbol: %s\nVolume: %.2f\nOpen Price: %.5f\nCurrent Price: %.5f\nProfit: %.2f\nCurrent Equity: %.2f",
+                                       symbol, volume, openPrice, currentPrice, profit, currentEquity);
+         
+         // Send the notification
+         if(symbol == _Symbol){
+            if(!SendNotification(message)){
+               Print("Error sending notification for position ", positionTicket);
+            }
+         }
+       }
+    }
 }
 
 void OnTick(){}
