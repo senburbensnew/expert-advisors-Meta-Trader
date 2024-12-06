@@ -1,0 +1,36 @@
+int rsiHandler;
+int EnveloppeDefinition;
+int enveloppesHandler1;
+int enveloppesHandler2;
+int stochasticOscillatorHandler;
+int slowMaHandler;
+int fastMaHandler;
+int middleMaHandler;
+input int fastMaPeriod = 8;
+input int middleMaPeriod = 55;
+input int slowMaPeriod = 200;
+
+int OnInit()
+{
+   fastMaHandler = iMA(_Symbol, PERIOD_CURRENT, fastMaPeriod, 0, MODE_EMA, PRICE_CLOSE);
+   middleMaHandler = iMA(_Symbol, PERIOD_CURRENT, middleMaPeriod, 0, MODE_EMA, PRICE_CLOSE);
+   slowMaHandler = iMA(_Symbol, PERIOD_CURRENT, slowMaPeriod, 0, MODE_SMA, PRICE_CLOSE);
+   rsiHandler = iRSI(_Symbol, PERIOD_CURRENT, 1, PRICE_CLOSE); // Add RSI indicator in subwindow 1 
+   stochasticOscillatorHandler = iStochastic(_Symbol, PERIOD_CURRENT, 100,5,8,MODE_SMA,STO_LOWHIGH);
+   enveloppesHandler1 = iEnvelopes(_Symbol, PERIOD_CURRENT, 1, 0, MODE_SMMA, PRICE_CLOSE, 6.000); // Add enveloppes 1 indicator in subwindow 1   
+   enveloppesHandler2 = iEnvelopes(_Symbol, PERIOD_CURRENT, 1, 0, MODE_SMMA, PRICE_CLOSE, 0.008); // Add enveloppes 2 indicator in subwindow 1  
+
+   EnveloppeDefinition = iEnvelopes(_Symbol, _Period, 1, 0, MODE_SMA, PRICE_CLOSE, 0.100);
+   
+   ChartIndicatorAdd(ChartID(), 0, fastMaHandler); 
+   ChartIndicatorAdd(ChartID(), 0, middleMaHandler); 
+   ChartIndicatorAdd(ChartID(), 0, slowMaHandler);
+   ChartIndicatorAdd(ChartID(), 1, rsiHandler);
+   ChartIndicatorAdd(ChartID(), 1, enveloppesHandler1);  
+   ChartIndicatorAdd(ChartID(), 1, enveloppesHandler2); 
+   ChartIndicatorAdd(ChartID(), 1, stochasticOscillatorHandler); 
+   
+   return(INIT_SUCCEEDED);
+}
+
+void OnTick(){}
