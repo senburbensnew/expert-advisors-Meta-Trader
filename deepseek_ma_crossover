@@ -105,6 +105,11 @@ void OnTick()
       double takeProfit = entryPrice + (entryPrice - stopLoss) / rrRatio;
       
       double riskPoints = MathAbs(entryPrice - stopLoss) / _Point;
+      if(riskPoints <= 0 || pointValue <= 0) // Added validation
+      {
+         Print("Invalid risk calculation: riskPoints=", riskPoints, " pointValue=", pointValue);
+         return;
+      }
       double lotSize = NormalizeDouble(riskAmount / (riskPoints * pointValue), 2);
       lotSize = fmin(lotSize, maxLotSize);
       
@@ -122,6 +127,11 @@ void OnTick()
       double takeProfit = entryPrice - (stopLoss - entryPrice) / rrRatio;
       
       double riskPoints = MathAbs(entryPrice - stopLoss) / _Point;
+      if(riskPoints <= 0 || pointValue <= 0) // Added validation
+      {
+         Print("Invalid risk calculation: riskPoints=", riskPoints, " pointValue=", pointValue);
+         return;
+      }
       double lotSize = NormalizeDouble(riskAmount / (riskPoints * pointValue), 2);
       lotSize = fmin(lotSize, maxLotSize);
       
