@@ -1,0 +1,206 @@
+#property copyright "Your Name"
+#property link      "https://www.example.com"
+#property version   "1.00"
+#property strict
+
+// Add constants for object names
+#define FAST_MA_OBJ "FastMA"
+#define MIDDLE_MA_OBJ "MiddleMA"
+#define SLOW_MA_OBJ "SlowMA"
+
+input int      fastMaPeriod = 8;       // Fast MA Period (EMA)
+input int      middleMaPeriod = 55;    // Middle MA Period (EMA)
+input int      slowMaPeriod = 200;     // Slow MA Period (SMA)
+input double   riskPercentage = 1.0;   // Risk Percentage per Trade
+input double   rrRatio = 0.25;         // Risk/Reward Ratio (1/4)
+input double   maxLotSize = 100.0;     // Maximum Lot Size
+
+int fastMaHandler, middleMaHandler, slowMaHandler;
+double pointValue;
+
+//+------------------------------------------------------------------+
+//| Expert initialization function                                   |
+//+------------------------------------------------------------------+
+int OnInit()
+{
+
+// Create MA handles
+   fastMaHandler = iMA(_Symbol, PERIOD_CURRENT, fastMaPeriod, 0, MODE_EMA, PRICE_CLOSE);
+   middleMaHandler = iMA(_Symbol, PERIOD_CURRENT, middleMaPeriod, 0, MODE_EMA, PRICE_CLOSE);
+   slowMaHandler = iMA(_Symbol, PERIOD_CURRENT, slowMaPeriod, 0, MODE_SMA, PRICE_CLOSE);
+   
+   if(fastMaHandler == INVALID_HANDLE || middleMaHandler == INVALID_HANDLE || slowMaHandler == INVALID_HANDLE)
+   {
+      Print("Error creating MA handles");
+      return(INIT_FAILED);
+   }
+   
+   // Initialize objects to draw MAs
+   CreateMaObject(FAST_MA_OBJ, clrBlue);    // Fast MA (Blue)
+   CreateMaObject(MIDDLE_MA_OBJ, clrGreen); // Middle MA (Green)
+   CreateMaObject(SLOW_MA_OBJ, clrRed);     // Slow MA (Red)
+   
+   pointValue = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_VALUE) / 
+               (SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_SIZE) / 
+               SymbolInfoDouble(_Symbol, SYMBOL_POINT));
+               
+   return(INIT_SUCCEEDED);
+}
+
+//+------------------------------------------------------------------+
+//| Create a horizontal line object for an MA                        |
+//+------------------------------------------------------------------+
+void CreateMaObject(const string name, const color clr)
+{
+   ObjectCreate(0, name, OBJ_HLINE, 0, 0, 0);
+   ObjectSetInteger(0, name, OBJPROP_COLOR, clr);
+   ObjectSetInteger(0, name, OBJPROP_STYLE, STYLE_SOLID);
+   ObjectSetInteger(0, name, OBJPROP_WIDTH, 2);
+   ObjectSetInteger(0, name, OBJPROP_BACK, true); // Draw behind price chart
+}
+
+//+------------------------------------------------------------------+
+//| Expert tick function                                             |
+//+------------------------------------------------------------------+
+void OnTick()
+{
+   if(BarsCalculated(fastMaHandler) < slowMaPeriod || 
+      BarsCalculated(middleMaHandler) < slowMaPeriod || 
+      BarsCalculated(slowMaHandler) < slowMaPeriod)
+      return;
+
+   double fastMa[], middleMa[], slowMa[];
+   CopyBuffer(fastMaHandler, 0, 0, 3, fastMa);
+   CopyBuffer(middleMaHandler, 0, 0, 3, middleMa);
+   CopyBuffer(slowMaHandler, 0, 0, 3, slowMa);
+   
+   ArraySetAsSeries(fastMa, true);
+   ArraySetAsSeries(middleMa, true);
+   ArraySetAsSeries(slowMa, true);
+
+   // Update MA lines on the chart
+   ObjectSetDouble(0, FAST_MA_OBJ, OBJPROP_PRICE, fastMa[0]);
+   ObjectSetDouble(0, MIDDLE_MA_OBJ, OBJPROP_PRICE, middleMa[0]);
+   ObjectSetDouble(0, SLOW_MA_OBJ, OBJPROP_PRICE, slowMa[0]);
+
+   // Enhanced crossover detection
+   bool bullishCross = (fastMa[0] > middleMa[0] && middleMa[0] > slowMa[0]) && 
+                       (fastMa[1] <= middleMa[1] || middleMa[1] <= slowMa[1]);
+                       
+   bool bearishCross = (fastMa[0] < middleMa[0] && middleMa[0] < slowMa[0]) && 
+                       (fastMa[1] >= middleMa[1] || middleMa[1] >= slowMa[1]);
+
+   // Check existing positions
+   bool positionExists = PositionSelect(_Symbol);
+
+   // Calculate risk amount based on account equity
+   double equity = AccountInfoDouble(ACCOUNT_EQUITY);
+   double riskAmount = equity * riskPercentage / 1000;
+
+   // Execute trades with enhanced conditions
+   if(bullishCross && !positionExists)
+   {
+      double entryPrice = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+      double stopLoss = slowMa[0];
+      double takeProfit = entryPrice + (entryPrice - stopLoss) / rrRatio;
+      
+      double riskPoints = MathAbs(entryPrice - stopLoss) / _Point;
+      double lotSize = NormalizeDouble(riskAmount / (riskPoints * pointValue), 2);
+      lotSize = fmin(lotSize, maxLotSize);
+      
+      if(lotSize >= SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN))
+      {
+         SendOrder(ORDER_TYPE_BUY, lotSize, entryPrice, stopLoss, takeProfit);
+         string message = "" + _Symbol + ":" + currentTimeFrame() + " Buy position taken";
+         SendNotification(message);
+      }
+   }
+   else if(bearishCross && !positionExists)
+   {
+      double entryPrice = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+      double stopLoss = slowMa[0];
+      double takeProfit = entryPrice - (stopLoss - entryPrice) / rrRatio;
+      
+      double riskPoints = MathAbs(entryPrice - stopLoss) / _Point;
+      double lotSize = NormalizeDouble(riskAmount / (riskPoints * pointValue), 2);
+      lotSize = fmin(lotSize, maxLotSize);
+      
+      if(lotSize >= SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN))
+      {
+         SendOrder(ORDER_TYPE_SELL, lotSize, entryPrice, stopLoss, takeProfit);
+         string message = "" + _Symbol + ":" + currentTimeFrame() + " Sell position taken";
+         SendNotification(message);
+      }
+   }
+}
+
+//+------------------------------------------------------------------+
+//| Enhanced order sending function                                  |
+//+------------------------------------------------------------------+
+void SendOrder(ENUM_ORDER_TYPE orderType, double lotSize, double price, 
+               double sl, double tp)
+{
+   MqlTradeRequest request = {};
+   MqlTradeResult result = {};
+   
+   request.action = TRADE_ACTION_DEAL;
+   request.symbol = _Symbol;
+   request.volume = lotSize;
+   request.type = orderType;
+   request.price = price;
+   request.sl = sl;
+   request.tp = tp;
+   request.deviation = 10;
+   request.type_filling = ORDER_FILLING_FOK;
+   
+   if(!OrderSend(request, result))
+   {
+      Print("OrderSend failed: ", GetLastError(), " Retry: ", result.retcode);
+   }
+}
+
+//+------------------------------------------------------------------+
+//| Expert deinitialization function                                 |
+//+------------------------------------------------------------------+
+void OnDeinit(const int reason)
+{
+   // Delete MA objects when EA is removed
+   ObjectDelete(0, FAST_MA_OBJ);
+   ObjectDelete(0, MIDDLE_MA_OBJ);
+   ObjectDelete(0, SLOW_MA_OBJ);
+   
+   IndicatorRelease(fastMaHandler);
+   IndicatorRelease(middleMaHandler);
+   IndicatorRelease(slowMaHandler);
+}
+
+string currentTimeFrame(){
+   string timeframe = "M1"; 
+   long currentPeriod = Period();
+      
+   switch(currentPeriod){
+      case 1:
+      case 5:
+      case 15:
+      case 30:
+        timeframe = "M"+currentPeriod;
+      break;
+      case 16385 :
+        timeframe = "H1";
+      break;
+      case 16388:
+        timeframe = "H4";
+      break;
+      case 16408:
+        timeframe = "D1";
+      break;
+      case 32769:
+        timeframe = "W1";
+      break;
+      case 49153:
+        timeframe = "MN1";
+      break;
+   }   
+   
+   return timeframe;
+}
