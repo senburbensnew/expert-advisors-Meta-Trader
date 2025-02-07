@@ -133,7 +133,6 @@ void OnTick()
 
    // Calculate risk amount based on account equity
    double equity = AccountInfoDouble(ACCOUNT_EQUITY);
-   // double riskAmount = equity * riskPercentage / 100;
    double riskAmount = equity * 0.01; // 1% of equity
 
    // Broker-specific constraints
@@ -143,7 +142,7 @@ void OnTick()
    double lotStep = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP);
 
    // Execute trades based on Stochastic signals
-   if(stochBuy && !positionExists)
+   if(bullishCross && stochBuy && !positionExists)
    {
       double entryPrice = NormalizeDouble(SymbolInfoDouble(_Symbol, SYMBOL_ASK), _Digits);
       double stopLoss = NormalizeDouble(slowMa[0], _Digits);
@@ -171,7 +170,7 @@ void OnTick()
          SendNotification(message);
       }
    }
-   else if(stochSell && !positionExists)  
+   else if(bearishCross && stochSell && !positionExists)  
    {
       double entryPrice = NormalizeDouble(SymbolInfoDouble(_Symbol, SYMBOL_BID), _Digits);
       double stopLoss = NormalizeDouble(slowMa[0], _Digits);
@@ -279,10 +278,18 @@ void TrailStopLoss()
                 s_positions[idx].extreme_price = current_price;
         }
         
-        // Calculate new_sl based on extreme price
-        double new_sl = s_positions[idx].type == POSITION_TYPE_BUY 
-                      ? s_positions[idx].extreme_price - s_positions[idx].original_sl_distance
-                      : s_positions[idx].extreme_price + s_positions[idx].original_sl_distance;
+        // Calculate new_sl based on extreme price and cap at breakeven
+        double new_sl;
+        if(s_positions[idx].type == POSITION_TYPE_BUY)
+        {
+            new_sl = s_positions[idx].extreme_price - s_positions[idx].original_sl_distance;
+            new_sl = MathMin(new_sl, entry_price); // Cap at entry for buy
+        }
+        else
+        {
+            new_sl = s_positions[idx].extreme_price + s_positions[idx].original_sl_distance;
+            new_sl = MathMax(new_sl, entry_price); // Cap at entry for sell
+        }
         
         // Check SL modification condition
         bool modify = false;
