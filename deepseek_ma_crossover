@@ -8,23 +8,32 @@
 #define MIDDLE_MA_OBJ "MiddleMA"
 #define SLOW_MA_OBJ "SlowMA"
 
+input int      stochKPeriod = 14;       // Stochastic %K Period
+input int      stochDPeriod = 3;        // Stochastic %D Period
+input int      stochSlowing = 3;        // Stochastic Slowing
+input double   riskPercentage = 1.0;    // Risk Percentage per Trade
+input double   rrRatio = 5.0;           // Risk/Reward Ratio (e.g., 1:2)
+input double   maxLotSize = 100.0;      // Maximum Lot Size
+input int      stochOverbought = 80;    // Stochastic Overbought Level
+input int      stochOversold = 20;      // Stochastic Oversold Level
+
 input int      fastMaPeriod = 8;       // Fast MA Period (EMA)
 input int      middleMaPeriod = 55;    // Middle MA Period (EMA)
 input int      slowMaPeriod = 200;     // Slow MA Period (SMA)
-input double   riskPercentage = 1.0;   // Risk Percentage per Trade
-input double   rrRatio = 0.25;         // Risk/Reward Ratio (1/4)
-input double   maxLotSize = 100.0;     // Maximum Lot Size
 
+input long    minVolume = 100;        // Minimum volume to trigger trade
+
+int stochasticOscillatorHandler;
 int fastMaHandler, middleMaHandler, slowMaHandler;
 double pointValue;
+double lastCurrentPrice = 0; // Variable to store the last current price
 
 //+------------------------------------------------------------------+
 //| Expert initialization function                                   |
 //+------------------------------------------------------------------+
 int OnInit()
 {
-
-// Create MA handles
+   // Create MA handles
    fastMaHandler = iMA(_Symbol, PERIOD_CURRENT, fastMaPeriod, 0, MODE_EMA, PRICE_CLOSE);
    middleMaHandler = iMA(_Symbol, PERIOD_CURRENT, middleMaPeriod, 0, MODE_EMA, PRICE_CLOSE);
    slowMaHandler = iMA(_Symbol, PERIOD_CURRENT, slowMaPeriod, 0, MODE_SMA, PRICE_CLOSE);
@@ -36,10 +45,21 @@ int OnInit()
    }
    
    // Initialize objects to draw MAs
-   CreateMaObject(FAST_MA_OBJ, clrBlue);    // Fast MA (Blue)
-   CreateMaObject(MIDDLE_MA_OBJ, clrGreen); // Middle MA (Green)
-   CreateMaObject(SLOW_MA_OBJ, clrRed);     // Slow MA (Red)
+   CreateMaObject(FAST_MA_OBJ, clrRed);    // Fast MA (Blue)
+   CreateMaObject(MIDDLE_MA_OBJ, clrBlue); // Middle MA (Green)
+   CreateMaObject(SLOW_MA_OBJ, clrWhite);     // Slow MA (Red)
    
+   // Create Stochastic handle
+   stochasticOscillatorHandler = iStochastic(_Symbol, PERIOD_CURRENT, stochKPeriod, stochDPeriod, stochSlowing, MODE_SMA, STO_LOWHIGH);
+   
+   if(stochasticOscillatorHandler == INVALID_HANDLE)
+   {
+      Print("Error creating Stochastic indicator handle");
+      return(INIT_FAILED);
+   }
+
+   ChartIndicatorAdd(ChartID(), 1, stochasticOscillatorHandler); 
+
    pointValue = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_VALUE) / 
                (SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_SIZE) / 
                SymbolInfoDouble(_Symbol, SYMBOL_POINT));
@@ -64,7 +84,11 @@ void CreateMaObject(const string name, const color clr)
 //+------------------------------------------------------------------+
 void OnTick()
 {
-   if(BarsCalculated(fastMaHandler) < slowMaPeriod || 
+   // Check for minimum volume
+   long currentVolume = iVolume(_Symbol, _Period, 0);
+   if(currentVolume < minVolume) return;
+   
+   if(BarsCalculated(fastMaHandler) < slowMaPeriod ||   
       BarsCalculated(middleMaHandler) < slowMaPeriod || 
       BarsCalculated(slowMaHandler) < slowMaPeriod)
       return;
@@ -82,77 +106,240 @@ void OnTick()
    ObjectSetDouble(0, FAST_MA_OBJ, OBJPROP_PRICE, fastMa[0]);
    ObjectSetDouble(0, MIDDLE_MA_OBJ, OBJPROP_PRICE, middleMa[0]);
    ObjectSetDouble(0, SLOW_MA_OBJ, OBJPROP_PRICE, slowMa[0]);
-
+   
    // Enhanced crossover detection
    bool bullishCross = (fastMa[0] > middleMa[0] && middleMa[0] > slowMa[0]) && 
                        (fastMa[1] <= middleMa[1] || middleMa[1] <= slowMa[1]);
                        
    bool bearishCross = (fastMa[0] < middleMa[0] && middleMa[0] < slowMa[0]) && 
                        (fastMa[1] >= middleMa[1] || middleMa[1] >= slowMa[1]);
+   
+   if(BarsCalculated(stochasticOscillatorHandler) < stochKPeriod + stochDPeriod + stochSlowing)
+      return;
+   
+   double K[], D[];
+   CopyBuffer(stochasticOscillatorHandler, 0, 0, 3, K); // %K values
+   CopyBuffer(stochasticOscillatorHandler, 1, 0, 3, D); // %D values
+   
+   ArraySetAsSeries(K, true);
+   ArraySetAsSeries(D, true);
+
+   // Check for Stochastic crossover signals
+   bool stochBuy = (K[0] > stochOversold && K[1] <= stochOversold);  // %K crosses above 20
+   bool stochSell = (K[0] < stochOverbought && K[1] >= stochOverbought); // %K crosses below 80
 
    // Check existing positions
    bool positionExists = PositionSelect(_Symbol);
 
    // Calculate risk amount based on account equity
    double equity = AccountInfoDouble(ACCOUNT_EQUITY);
-   double riskAmount = equity * riskPercentage / 1000;
+   // double riskAmount = equity * riskPercentage / 100;
+   double riskAmount = equity * 0.01; // 1% of equity
 
-   // Execute trades with enhanced conditions
-   if(bullishCross && !positionExists)
+   // Broker-specific constraints
+   double minStopLevel = SymbolInfoInteger(_Symbol, SYMBOL_TRADE_STOPS_LEVEL) * _Point;
+   double minLotSize = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN);
+   double maxLotSize = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MAX);
+   double lotStep = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP);
+
+   // Execute trades based on Stochastic signals
+   if(stochBuy && !positionExists)
    {
-      double entryPrice = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
-      double stopLoss = slowMa[0];
-      double takeProfit = entryPrice + (entryPrice - stopLoss) / rrRatio;
-      
+      double entryPrice = NormalizeDouble(SymbolInfoDouble(_Symbol, SYMBOL_ASK), _Digits);
+      double stopLoss = NormalizeDouble(slowMa[0], _Digits);
+      double takeProfit = entryPrice + (entryPrice - stopLoss) * rrRatio; // For Buy
+
+      // For Buy orders
+      if (stopLoss >= entryPrice || takeProfit <= entryPrice) {
+        Print("Invalid SL/TP for Buy");
+        return;
+      }
+
       double riskPoints = MathAbs(entryPrice - stopLoss) / _Point;
-      if(riskPoints <= 0 || pointValue <= 0) // Added validation
-      {
+      if(riskPoints <= 0 || pointValue <= 0) {
          Print("Invalid risk calculation: riskPoints=", riskPoints, " pointValue=", pointValue);
          return;
       }
-      double lotSize = NormalizeDouble(riskAmount / (riskPoints * pointValue), 2);
+
+      double lotSize = NormalizeDouble(riskAmount / (riskPoints * pointValue), (int)MathLog10(1 / lotStep));
       lotSize = fmin(lotSize, maxLotSize);
-      
-      if(lotSize >= SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN))
-      {
+      lotSize = fmax(lotSize, minLotSize);
+
+      if(lotSize >= minLotSize) {
          SendOrder(ORDER_TYPE_BUY, lotSize, entryPrice, stopLoss, takeProfit);
          string message = "" + _Symbol + ":" + currentTimeFrame() + " Buy position taken";
          SendNotification(message);
       }
    }
-   else if(bearishCross && !positionExists)
+   else if(stochSell && !positionExists)  
    {
-      double entryPrice = SymbolInfoDouble(_Symbol, SYMBOL_BID);
-      double stopLoss = slowMa[0];
-      double takeProfit = entryPrice - (stopLoss - entryPrice) / rrRatio;
+      double entryPrice = NormalizeDouble(SymbolInfoDouble(_Symbol, SYMBOL_BID), _Digits);
+      double stopLoss = NormalizeDouble(slowMa[0], _Digits);
+      double takeProfit = entryPrice - (stopLoss - entryPrice) * rrRatio; // TP BELOW entry
+      
+      // Validate
+      if (stopLoss <= entryPrice || takeProfit >= entryPrice) {
+        Print("Invalid SL/TP for Sell");
+        return;
+      }
       
       double riskPoints = MathAbs(entryPrice - stopLoss) / _Point;
-      if(riskPoints <= 0 || pointValue <= 0) // Added validation
-      {
+      if(riskPoints <= 0 || pointValue <= 0) {
          Print("Invalid risk calculation: riskPoints=", riskPoints, " pointValue=", pointValue);
          return;
       }
-      double lotSize = NormalizeDouble(riskAmount / (riskPoints * pointValue), 2);
+
+      double lotSize = NormalizeDouble(riskAmount / (riskPoints * pointValue), (int)MathLog10(1 / lotStep));
       lotSize = fmin(lotSize, maxLotSize);
-      
-      if(lotSize >= SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN))
-      {
+      lotSize = fmax(lotSize, minLotSize);
+
+      if(lotSize >= minLotSize) {
          SendOrder(ORDER_TYPE_SELL, lotSize, entryPrice, stopLoss, takeProfit);
          string message = "" + _Symbol + ":" + currentTimeFrame() + " Sell position taken";
          SendNotification(message);
       }
    }
+   
+   TrailStopLoss();
+}
+
+//+------------------------------------------------------------------+
+//| TrailStopLoss function                                           |
+//+------------------------------------------------------------------+
+void TrailStopLoss()
+{
+    // Static array to track positions' data
+    static struct PositionData
+    {
+        ulong             ticket;
+        ENUM_POSITION_TYPE type;
+        double            original_sl_distance;
+        double            extreme_price;
+    } s_positions[];
+    
+    // Temporary array to store currently open tickets
+    ulong open_tickets[];
+    int num_positions = PositionsTotal();
+    ArrayResize(open_tickets, num_positions);
+    
+    // Populate open_tickets array
+    for(int i = 0; i < num_positions; i++)
+        open_tickets[i] = PositionGetTicket(i);
+    
+    // Check each open position
+    for(int i = 0; i < num_positions; i++)
+    {
+        ulong ticket = open_tickets[i];
+        if(!PositionSelectByTicket(ticket)) continue;
+        
+        string symbol = PositionGetString(POSITION_SYMBOL);
+        ENUM_POSITION_TYPE type = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE);
+        double entry_price = PositionGetDouble(POSITION_PRICE_OPEN);
+        double sl_price = PositionGetDouble(POSITION_SL);
+        double current_sl = sl_price;
+        
+        // Find position in s_positions
+        int idx = -1;
+        for(int j = 0; j < ArraySize(s_positions); j++)
+            if(s_positions[j].ticket == ticket) { idx = j; break; }
+        
+        // If new position, initialize tracking
+        if(idx == -1)
+        {
+            ArrayResize(s_positions, ArraySize(s_positions) + 1);
+            idx = ArraySize(s_positions) - 1;
+            s_positions[idx].ticket = ticket;
+            s_positions[idx].type = type;
+            
+            // Calculate original_sl_distance
+            if(type == POSITION_TYPE_BUY)
+            {
+                s_positions[idx].original_sl_distance = entry_price - sl_price;
+                s_positions[idx].extreme_price = SymbolInfoDouble(symbol, SYMBOL_BID);
+            }
+            else
+            {
+                s_positions[idx].original_sl_distance = sl_price - entry_price;
+                s_positions[idx].extreme_price = SymbolInfoDouble(symbol, SYMBOL_ASK);
+            }
+        }
+        
+        // Update extreme_price
+        double current_price;
+        if(s_positions[idx].type == POSITION_TYPE_BUY)
+        {
+            current_price = SymbolInfoDouble(symbol, SYMBOL_BID);
+            if(current_price > s_positions[idx].extreme_price)
+                s_positions[idx].extreme_price = current_price;
+        }
+        else
+        {
+            current_price = SymbolInfoDouble(symbol, SYMBOL_ASK);
+            if(current_price < s_positions[idx].extreme_price)
+                s_positions[idx].extreme_price = current_price;
+        }
+        
+        // Calculate new_sl based on extreme price
+        double new_sl = s_positions[idx].type == POSITION_TYPE_BUY 
+                      ? s_positions[idx].extreme_price - s_positions[idx].original_sl_distance
+                      : s_positions[idx].extreme_price + s_positions[idx].original_sl_distance;
+        
+        // Check SL modification condition
+        bool modify = false;
+        if(s_positions[idx].type == POSITION_TYPE_BUY && new_sl > current_sl) modify = true;
+        if(s_positions[idx].type == POSITION_TYPE_SELL && new_sl < current_sl) modify = true;
+        
+        // Modify SL if needed
+        if(modify)
+        {
+            MqlTradeRequest request = {};
+            MqlTradeResult result = {};
+            request.action = TRADE_ACTION_SLTP;
+            request.position = ticket;
+            request.symbol = symbol;
+            request.sl = new_sl;
+            request.tp = PositionGetDouble(POSITION_TP);
+            
+            if(OrderSend(request, result))
+                Print("SL updated for ticket ", ticket, " to ", new_sl);
+            else
+                Print("Failed to update SL: Error ", GetLastError());
+        }
+    }
+    
+    // Clean up closed positions
+    for(int j = ArraySize(s_positions)-1; j >= 0; j--)
+    {
+        bool exists = false;
+        for(int i = 0; i < num_positions; i++)
+            if(s_positions[j].ticket == open_tickets[i]) { exists = true; break; }
+        
+        if(!exists) ArrayRemove(s_positions, j, 1);
+    }
 }
 
 //+------------------------------------------------------------------+
 //| Enhanced order sending function                                  |
 //+------------------------------------------------------------------+
-void SendOrder(ENUM_ORDER_TYPE orderType, double lotSize, double price, 
-               double sl, double tp)
+void SendOrder(ENUM_ORDER_TYPE orderType, double lotSize, double price, double sl, double tp)
 {
    MqlTradeRequest request = {};
    MqlTradeResult result = {};
-   
+
+   // Validate SL and TP levels
+   double minStopLevel = SymbolInfoInteger(_Symbol, SYMBOL_TRADE_STOPS_LEVEL) * _Point;
+   if (MathAbs(price - sl) < minStopLevel || MathAbs(tp - price) < minStopLevel) {
+      Print("Invalid SL/TP levels: SL=", sl, " TP=", tp);
+      return;
+   }
+
+   // Normalize values
+   price = NormalizeDouble(price, _Digits);
+   sl = NormalizeDouble(sl, _Digits);
+   tp = NormalizeDouble(tp, _Digits);
+   lotSize = NormalizeDouble(lotSize, (int)MathLog10(1 / SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP)));
+
+   // Populate trade request
    request.action = TRADE_ACTION_DEAL;
    request.symbol = _Symbol;
    request.volume = lotSize;
@@ -162,12 +349,16 @@ void SendOrder(ENUM_ORDER_TYPE orderType, double lotSize, double price,
    request.tp = tp;
    request.deviation = 10;
    request.type_filling = ORDER_FILLING_FOK;
-   
-   if(!OrderSend(request, result))
-   {
+
+   // Send the order
+   if (!OrderSend(request, result)) {
       Print("OrderSend failed: ", GetLastError(), " Retry: ", result.retcode);
+   } else {
+      Print("Order sent successfully: ", request.symbol, " Volume: ", request.volume, " SL: ", request.sl, " TP: ", request.tp);
    }
 }
+
+
 
 //+------------------------------------------------------------------+
 //| Expert deinitialization function                                 |
@@ -182,35 +373,24 @@ void OnDeinit(const int reason)
    IndicatorRelease(fastMaHandler);
    IndicatorRelease(middleMaHandler);
    IndicatorRelease(slowMaHandler);
+   IndicatorRelease(stochasticOscillatorHandler);
 }
 
+//+------------------------------------------------------------------+
+//| Helper function to get current timeframe as a string            |
+//+------------------------------------------------------------------+
 string currentTimeFrame(){
-   string timeframe = "M1"; 
-   long currentPeriod = Period();
-      
-   switch(currentPeriod){
-      case 1:
-      case 5:
-      case 15:
-      case 30:
-        timeframe = "M"+currentPeriod;
-      break;
-      case 16385 :
-        timeframe = "H1";
-      break;
-      case 16388:
-        timeframe = "H4";
-      break;
-      case 16408:
-        timeframe = "D1";
-      break;
-      case 32769:
-        timeframe = "W1";
-      break;
-      case 49153:
-        timeframe = "MN1";
-      break;
-   }   
-   
-   return timeframe;
+    long period = Period();
+    switch(period){
+        case 1: return "M1";
+        case 5: return "M5";
+        case 15: return "M15";
+        case 30: return "M30";
+        case 60: return "H1";
+        case 240: return "H4";
+        case 1440: return "D1";
+        case 10080: return "W1";
+        case 43200: return "MN1";
+        default: return "Unknown";
+    }
 }
