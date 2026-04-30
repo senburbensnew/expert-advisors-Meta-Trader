@@ -21,6 +21,7 @@ input int      stochOversold = 20;      // Stochastic Oversold Level
 input int      fastMaPeriod   = 21;  // Fast MA Period (EMA21)
 input int      middleMaPeriod = 50;  // Middle MA Period (EMA50)
 input int      slowMaPeriod   = 200; // Slow MA Period (SMA200)
+input int      maDrawBars     = 300; // Bars of MA history to draw on chart
 
 input long    minVolume = 0;          // Minimum volume filter (0 = disabled; use 0 for indices/crypto/gold)
 input int     profitNotifyMinutes = 15;   // Profit P&L notification interval (minutes)
@@ -190,10 +191,8 @@ int OnInit()
         return INIT_FAILED;
     }
 
-   // Initialize objects to draw MAs
-   CreateMaObject(FAST_MA_OBJ,   clrAqua);         // EMA21 – cyan
-   CreateMaObject(MIDDLE_MA_OBJ, clrGold);         // EMA50 – gold
-   CreateMaObject(SLOW_MA_OBJ,   clrRed);          // SMA200 – red
+   // Draw MA history as colored segments
+   DrawMAHistory();
 
    // Create Stochastic handle
    stochasticOscillatorHandler = iStochastic(_Symbol, PERIOD_CURRENT, stochKPeriod, stochDPeriod, stochSlowing, MODE_SMA, STO_LOWHIGH);
@@ -213,23 +212,54 @@ int OnInit()
 
    trade.SetExpertMagicNumber(magicNumber);
 
-   ChartIndicatorAdd(ChartID(), 0, fastMaHandler);    // EMA21
-   ChartIndicatorAdd(ChartID(), 0, middleMaHandler);  // EMA50
-   ChartIndicatorAdd(ChartID(), 0, slowMaHandler);    // SMA200
 
    return(INIT_SUCCEEDED);
 }
 
 //+------------------------------------------------------------------+
-//| Create a horizontal line object for an MA                        |
+//| Draw MA curves as colored OBJ_TREND segments                     |
 //+------------------------------------------------------------------+
-void CreateMaObject(const string name, const color clr)
+void DrawMAHistory()
 {
-   ObjectCreate(0, name, OBJ_HLINE, 0, 0, 0);
-   ObjectSetInteger(0, name, OBJPROP_COLOR, clr);
-   ObjectSetInteger(0, name, OBJPROP_STYLE, STYLE_SOLID);
-   ObjectSetInteger(0, name, OBJPROP_WIDTH, 1);
-   ObjectSetInteger(0, name, OBJPROP_BACK, true); // Draw behind price chart
+   int bars = MathMin(maDrawBars, Bars(_Symbol, _Period) - 1);
+   double fast[], mid[], slow[];
+   if(CopyBuffer(fastMaHandler,   0, 0, bars + 1, fast)  < bars + 1) return;
+   if(CopyBuffer(middleMaHandler, 0, 0, bars + 1, mid)   < bars + 1) return;
+   if(CopyBuffer(slowMaHandler,   0, 0, bars + 1, slow)  < bars + 1) return;
+   ArraySetAsSeries(fast, true);
+   ArraySetAsSeries(mid,  true);
+   ArraySetAsSeries(slow, true);
+
+   ObjectsDeleteAll(0, "MA_seg_");
+
+   for(int i = 0; i < bars; i++)
+   {
+      datetime t1 = iTime(_Symbol, _Period, i + 1);
+      datetime t2 = iTime(_Symbol, _Period, i);
+      DrawMASeg("MA_seg_F" + IntegerToString(i), t1, fast[i+1], t2, fast[i], clrAqua, 2);
+      DrawMASeg("MA_seg_M" + IntegerToString(i), t1, mid[i+1],  t2, mid[i],  clrGold, 2);
+      DrawMASeg("MA_seg_S" + IntegerToString(i), t1, slow[i+1], t2, slow[i], clrRed,  2);
+   }
+   ChartRedraw(0);
+}
+
+void DrawMASeg(const string name, datetime t1, double p1,
+               datetime t2, double p2, color clr, int width)
+{
+   if(ObjectFind(0, name) < 0)
+      ObjectCreate(0, name, OBJ_TREND, 0, t1, p1, t2, p2);
+   else
+   {
+      ObjectSetInteger(0, name, OBJPROP_TIME,  0, t1);
+      ObjectSetDouble( 0, name, OBJPROP_PRICE, 0, p1);
+      ObjectSetInteger(0, name, OBJPROP_TIME,  1, t2);
+      ObjectSetDouble( 0, name, OBJPROP_PRICE, 1, p2);
+   }
+   ObjectSetInteger(0, name, OBJPROP_COLOR,     clr);
+   ObjectSetInteger(0, name, OBJPROP_WIDTH,     width);
+   ObjectSetInteger(0, name, OBJPROP_STYLE,     STYLE_SOLID);
+   ObjectSetInteger(0, name, OBJPROP_RAY_RIGHT, false);
+   ObjectSetInteger(0, name, OBJPROP_BACK,      true);
 }
 
 //+------------------------------------------------------------------+
@@ -247,6 +277,7 @@ void OnTick()
     if(currentBarTime != previousBarTime)
     {
         priceCrosses50MovingAverageDetector(maHandle); // Call the detector
+        DrawMAHistory();                               // Redraw colored MA lines
         previousBarTime = currentBarTime; // Update the bar time
     }
 
@@ -279,10 +310,6 @@ void OnTick()
    ArraySetAsSeries(middleMa, true);
    ArraySetAsSeries(slowMa, true);
 
-   // Update MA lines on the chart
-   ObjectSetDouble(0, FAST_MA_OBJ,   OBJPROP_PRICE, fastMa[0]);   // EMA21
-   ObjectSetDouble(0, MIDDLE_MA_OBJ, OBJPROP_PRICE, middleMa[0]); // EMA50
-   ObjectSetDouble(0, SLOW_MA_OBJ,   OBJPROP_PRICE, slowMa[0]);   // SMA200
 
 
 
@@ -461,10 +488,7 @@ void OnDeinit(const int reason)
 {
    Comment("");  // Clear on-chart dashboard
    ObjectsDeleteAll(0, "Tweezer*");
-   // Delete MA objects when EA is removed
-   ObjectDelete(0, FAST_MA_OBJ);
-   ObjectDelete(0, MIDDLE_MA_OBJ);
-   ObjectDelete(0, SLOW_MA_OBJ);
+   ObjectsDeleteAll(0, "MA_seg_"); // Remove all MA segment objects
 
    IndicatorRelease(fastMaHandler);
    IndicatorRelease(middleMaHandler);
