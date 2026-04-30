@@ -1,0 +1,162 @@
+int rsiHandler;
+int EnveloppeDefinition;
+int enveloppesHandler1;
+int enveloppesHandler2;
+int stochasticOscillatorHandler;
+int slowMaHandler;
+int fastMaHandler;
+int middleMaHandler;
+
+input int fastMaPeriod = 8;
+input int middleMaPeriod = 55;
+input int slowMaPeriod = 200;
+
+static double prevMainValue = 0;
+static double prevSignalValue = 0;
+
+string currentTimeFrame(){
+   string timeframe = "M1"; 
+   long currentPeriod = Period();
+      
+   switch(currentPeriod){
+      case 1:
+      case 5:
+      case 15:
+      case 30:
+        timeframe = "M"+currentPeriod;
+      break;
+      case 16385 :
+        timeframe = "H1";
+      break;
+      case 16388:
+        timeframe = "H4";
+      break;
+      case 16408:
+        timeframe = "D1";
+      break;
+      case 32769:
+        timeframe = "W1";
+      break;
+      case 49153:
+        timeframe = "MN1";
+      break;
+   }   
+   
+   return timeframe;
+}
+
+
+int OnInit()
+{
+   fastMaHandler = iMA(_Symbol, PERIOD_CURRENT, fastMaPeriod, 0, MODE_EMA, PRICE_CLOSE);
+   middleMaHandler = iMA(_Symbol, PERIOD_CURRENT, middleMaPeriod, 0, MODE_EMA, PRICE_CLOSE);
+   slowMaHandler = iMA(_Symbol, PERIOD_CURRENT, slowMaPeriod, 0, MODE_SMA, PRICE_CLOSE);
+   rsiHandler = iRSI(_Symbol, PERIOD_CURRENT, 1, PRICE_CLOSE); // Add RSI indicator in subwindow 1 
+   stochasticOscillatorHandler = iStochastic(_Symbol, PERIOD_CURRENT, 100,5,8,MODE_SMA,STO_LOWHIGH);
+   enveloppesHandler1 = iEnvelopes(_Symbol, PERIOD_CURRENT, 1, 0, MODE_SMMA, PRICE_CLOSE, 6.000); // Add enveloppes 1 indicator in subwindow 1   
+   enveloppesHandler2 = iEnvelopes(_Symbol, PERIOD_CURRENT, 1, 0, MODE_SMMA, PRICE_CLOSE, 0.008); // Add enveloppes 2 indicator in subwindow 1  
+
+   EnveloppeDefinition = iEnvelopes(_Symbol, _Period, 1, 0, MODE_SMA, PRICE_CLOSE, 0.100);
+   
+   ChartIndicatorAdd(ChartID(), 0, fastMaHandler); 
+   ChartIndicatorAdd(ChartID(), 0, middleMaHandler); 
+   ChartIndicatorAdd(ChartID(), 0, slowMaHandler);
+   ChartIndicatorAdd(ChartID(), 1, rsiHandler);
+   ChartIndicatorAdd(ChartID(), 1, enveloppesHandler1);  
+   ChartIndicatorAdd(ChartID(), 1, enveloppesHandler2); 
+   ChartIndicatorAdd(ChartID(), 1, stochasticOscillatorHandler); 
+   
+   EventSetTimer(300);
+   
+   return(INIT_SUCCEEDED);
+}
+
+void OnTimer(){
+   // Get the total number of open positions
+   int totalPositions = PositionsTotal();
+   
+   // Loop through each open position
+   for(int i = 0; i < totalPositions; i++){
+      // Get the position ticket
+      ulong positionTicket = PositionGetTicket(i);
+      
+      // Get the position information
+      if(PositionSelectByTicket(positionTicket)){
+         // Retrieve the current equity
+         double currentEquity = AccountInfoDouble(ACCOUNT_EQUITY);
+         
+         // Get details of the position
+         string symbol = PositionGetString(POSITION_SYMBOL);
+         double volume = PositionGetDouble(POSITION_VOLUME);
+         double openPrice = PositionGetDouble(POSITION_PRICE_OPEN);
+         double currentPrice = PositionGetDouble(POSITION_PRICE_CURRENT);
+         double profit = PositionGetDouble(POSITION_PROFIT);
+         
+         // Create the notification message
+         string message = StringFormat("Symbol: %s\nProfit: %.2f\nVolume: %.2f\nOpen Price: %.5f\nCurrent Price: %.5f\nCurrent Equity: %.2f",
+                                       symbol, profit, volume, openPrice, currentPrice, currentEquity);
+         
+         // Send the notification
+         if(symbol == _Symbol){
+            if(!SendNotification(message)){
+               Print("Error sending notification for position ", positionTicket);
+            }
+         }
+       }
+    }
+}
+
+void OnTick()
+{
+   double stochMainBuffer[];
+   double stochSignalBuffer[];
+   
+   // Prepare Stochastic indicator buffers
+   ArraySetAsSeries(stochMainBuffer, true);
+   ArraySetAsSeries(stochSignalBuffer, true);
+   
+   // Copy indicator buffers
+   CopyBuffer(stochasticOscillatorHandler, 0, 0, 3, stochMainBuffer);
+   CopyBuffer(stochasticOscillatorHandler, 1, 0, 3, stochSignalBuffer);
+   
+   // Print Stochastic values
+   Print(_Symbol, "-", currentTimeFrame(), " : Stochastic Main Line: ", 
+         NormalizeDouble(stochMainBuffer[0], 2),
+         " Signal Line: ", 
+         NormalizeDouble(stochSignalBuffer[0], 2));
+   
+   // Previous period's values
+   // static double prevMainValue = 0;
+   // static double prevSignalValue = 0;
+   
+   // Current values
+   double currentMainValue = NormalizeDouble(stochMainBuffer[0], 2);
+   double currentSignalValue = NormalizeDouble(stochSignalBuffer[0], 2);
+   
+   // Conditions for notifications
+   bool crossedBelow80 = (prevMainValue > 80 && currentMainValue <= 80) || 
+                          (prevSignalValue > 80 && currentSignalValue <= 80);
+   
+   bool crossedAbove20 = (prevMainValue < 20 && currentMainValue >= 20) || 
+                          (prevSignalValue < 20 && currentSignalValue >= 20);
+   
+   // Send notifications
+   if(crossedBelow80)
+   {
+      string message = StringFormat("%s-%s : Stochastic crossed below 80 (Main: %.2f, Signal: %.2f)", 
+                                    Symbol(), currentTimeFrame(), currentMainValue, currentSignalValue);
+      SendNotification(message);
+   }
+   
+   if(crossedAbove20)
+   {
+      string message = StringFormat("%s-%s : Stochastic crossed above 20 (Main: %.2f, Signal: %.2f)", 
+                                    Symbol(), currentTimeFrame(),currentMainValue, currentSignalValue);
+      SendNotification(message);
+   }
+   
+   // Update previous values for next iteration
+   prevMainValue = currentMainValue;
+   prevSignalValue = currentSignalValue;
+}
+
